@@ -444,6 +444,7 @@ cross or immediately match. Other venue rejections leave it `false`.
 | `QUANTITY_CONVERSION_FAILED`                     | The order quantity could not be converted for risk checks.                            |
 | `QUANTITY_EXCEEDS_MAXIMUM`                       | The effective order quantity exceeds the instrument maximum.                          |
 | `QUANTITY_BELOW_MINIMUM`                         | The effective order quantity is below the instrument minimum.                         |
+| `QUANTITY_NOT_LOT_MULTIPLE`                      | The order quantity is not a multiple of the instrument lot size.                      |
 | `INVALID_MAX_NOTIONAL_PER_ORDER`                 | The configured maximum notional per order is invalid.                                 |
 | `MISSING_EXPIRE_TIME`                            | A GTD order is missing its expire time.                                               |
 | `EXPIRE_TIME_IN_PAST`                            | The order's expire time is in the past.                                               |
