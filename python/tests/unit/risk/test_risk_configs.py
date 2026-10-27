@@ -36,6 +36,7 @@ def test_risk_engine_config_defaults() -> None:
     assert config.max_order_modify_rate == "100/00:00:01"
     assert config.max_notional_per_order == {}
     assert config.full_position_exit_venues == []
+    assert config.lot_size_enforced_venues == []
 
 
 def test_risk_engine_config_explicit() -> None:
@@ -48,6 +49,7 @@ def test_risk_engine_config_explicit() -> None:
         max_order_modify_rate="50/00:01:00",
         max_notional_per_order={"ETHUSDT.BINANCE": "100000.50"},
         full_position_exit_venues=[Venue("BINANCE")],
+        lot_size_enforced_venues=[Venue("SSE")],
         debug=True,
     )
 
@@ -57,6 +59,7 @@ def test_risk_engine_config_explicit() -> None:
     assert config.max_order_modify_rate == "50/00:01:00"
     assert config.max_notional_per_order == {"ETHUSDT.BINANCE": "100000.50"}
     assert config.full_position_exit_venues == [Venue("BINANCE")]
+    assert config.lot_size_enforced_venues == [Venue("SSE")]
 
 
 def test_risk_engine_config_round_trips_hours_component() -> None:

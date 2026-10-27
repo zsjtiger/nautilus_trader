@@ -555,6 +555,18 @@ impl RiskEngine {
             full_position_exit_venues.join(","),
         );
 
+        let mut lot_size_enforced_venues = self
+            .config
+            .lot_size_enforced_venues
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+        lot_size_enforced_venues.sort_unstable();
+        map.insert(
+            "lot_size_enforced_venues".to_string(),
+            lot_size_enforced_venues.join(","),
+        );
+
         map.insert("debug".to_string(), self.config.debug.to_string());
         map
     }
@@ -1057,6 +1069,7 @@ impl RiskEngine {
             command.quantity,
             order.is_quote_quantity(),
             false,
+            self.lot_size_enforced(&instrument),
         );
 
         if let Some(reason) = reason {
@@ -1212,6 +1225,7 @@ impl RiskEngine {
             Some(order.quantity()),
             order.is_quote_quantity(),
             full_position_exit,
+            self.lot_size_enforced(instrument),
         );
 
         if let Some(reason) = reason {
@@ -1755,11 +1769,18 @@ impl RiskEngine {
         None
     }
 
+    fn lot_size_enforced(&self, instrument: &InstrumentAny) -> bool {
+        self.config
+            .lot_size_enforced_venues
+            .contains(&instrument.id().venue)
+    }
+
     fn check_quantity(
         instrument: &InstrumentAny,
         quantity: Option<Quantity>,
         is_quote_quantity: bool,
         full_position_exit: bool,
+        enforce_lot_size: bool,
     ) -> Option<OrderDeniedReason> {
         let quantity_val = quantity?;
 
@@ -1776,6 +1797,17 @@ impl RiskEngine {
         // exits. Applicable quote-quantity notional limits are checked during account risk.
         if is_quote_quantity || full_position_exit {
             return None;
+        }
+
+        // Check whole lot multiples where the venue enforces lot sizes
+        if enforce_lot_size
+            && let Some(lot_size) = instrument.lot_size()
+            && quantity_val.as_decimal() % lot_size.as_decimal() != Decimal::ZERO
+        {
+            return Some(OrderDeniedReason::QuantityNotLotMultiple {
+                quantity: quantity_val,
+                lot_size,
+            });
         }
 
         // Check maximum quantity

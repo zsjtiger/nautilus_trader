@@ -62,6 +62,12 @@ pub struct RiskEngineConfig {
     /// Validated exits skip bounds that apply only to their placeholder quantity and notional.
     #[builder(default)]
     pub full_position_exit_venues: AHashSet<Venue>,
+    /// Venues whose orders must have a quantity that is a whole multiple of the instrument lot size.
+    ///
+    /// Instruments without a lot size are not checked. Empty by default, so lot sizes are not
+    /// enforced unless a venue is listed here.
+    #[builder(default)]
+    pub lot_size_enforced_venues: AHashSet<Venue>,
     /// Whether to emit additional debug logs.
     #[builder(default)]
     pub debug: bool,
@@ -123,6 +129,7 @@ mod tests {
         let config = RiskEngineConfig::builder().build().unwrap();
 
         assert!(config.full_position_exit_venues.is_empty());
+        assert!(config.lot_size_enforced_venues.is_empty());
     }
 
     #[rstest]

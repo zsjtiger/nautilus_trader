@@ -16,8 +16,11 @@
 use nautilus_common::{clock::VirtualClock, msgbus::stubs::get_typed_into_message_saving_handler};
 use nautilus_core::UnixNanos;
 use nautilus_model::{
-    accounts::CashAccount, identifiers::ClientOrderId, instruments::stubs::audusd_sim,
-    orders::OrderTestBuilder, types::money::MONEY_RAW_MAX,
+    accounts::CashAccount,
+    identifiers::{ClientOrderId, InstrumentId, Symbol, Venue},
+    instruments::{Equity, InstrumentAny, stubs::audusd_sim},
+    orders::OrderTestBuilder,
+    types::{Currency, Price, Quantity, money::MONEY_RAW_MAX},
 };
 use rstest::{fixture, rstest};
 use rust_decimal_macros::dec;
@@ -247,4 +250,115 @@ fn test_submit_orders_reject_invalid_notional_limit(mut engine: RiskEngine) {
             )
         );
     }
+}
+
+fn a_share_equity(lot_size: Option<Quantity>) -> InstrumentAny {
+    let builder = Equity::builder()
+        .instrument_id(InstrumentId::from("600519.SSE"))
+        .raw_symbol(Symbol::from("600519"))
+        .currency(Currency::from("CNY"))
+        .price_precision(2)
+        .price_increment(Price::from("0.01"))
+        .ts_event(UnixNanos::default())
+        .ts_init(UnixNanos::default());
+
+    let equity = match lot_size {
+        Some(lot_size) => builder.lot_size(lot_size).build().unwrap(),
+        None => builder.build().unwrap(),
+    };
+    InstrumentAny::Equity(equity)
+}
+
+#[rstest]
+#[case("200", true, None)]
+#[case("100", true, None)]
+#[case("150", true, Some(OrderDeniedReason::QuantityNotLotMultiple {
+    quantity: Quantity::from("150"),
+    lot_size: Quantity::from("100"),
+}))]
+#[case("50", true, Some(OrderDeniedReason::QuantityNotLotMultiple {
+    quantity: Quantity::from("50"),
+    lot_size: Quantity::from("100"),
+}))]
+#[case("150", false, None)]
+fn test_check_quantity_enforces_whole_lots_only_when_enabled(
+    #[case] quantity: &str,
+    #[case] enforce_lot_size: bool,
+    #[case] expected: Option<OrderDeniedReason>,
+) {
+    let instrument = a_share_equity(Some(Quantity::from("100")));
+
+    let reason = RiskEngine::check_quantity(
+        &instrument,
+        Some(Quantity::from(quantity)),
+        false,
+        false,
+        enforce_lot_size,
+    );
+
+    assert_eq!(reason, expected);
+}
+
+#[rstest]
+fn test_check_quantity_skips_lot_check_for_quote_quantity_and_full_position_exit() {
+    let instrument = a_share_equity(Some(Quantity::from("100")));
+    let quantity = Some(Quantity::from("150"));
+
+    assert_eq!(
+        RiskEngine::check_quantity(&instrument, quantity, true, false, true),
+        None
+    );
+    assert_eq!(
+        RiskEngine::check_quantity(&instrument, quantity, false, true, true),
+        None
+    );
+}
+
+#[rstest]
+fn test_check_quantity_skips_lot_check_when_instrument_has_no_lot_size() {
+    let instrument = a_share_equity(None);
+
+    let reason = RiskEngine::check_quantity(
+        &instrument,
+        Some(Quantity::from("150")),
+        false,
+        false,
+        true,
+    );
+
+    assert_eq!(reason, None);
+}
+
+#[rstest]
+fn test_lot_size_enforcement_applies_only_to_configured_venues() {
+    let clock = Rc::new(RefCell::new(VirtualClock::new()));
+    let cache = Rc::new(RefCell::new(Cache::default()));
+    let portfolio = Portfolio::new(
+        Rc::clone(&clock) as Rc<RefCell<dyn Clock>>,
+        Rc::clone(&cache),
+        None,
+    );
+    let config = RiskEngineConfig {
+        lot_size_enforced_venues: [Venue::from("SSE")].into_iter().collect(),
+        ..RiskEngineConfig::default()
+    };
+    let risk_engine = RiskEngine::new(config, portfolio, clock, cache);
+
+    let sse = a_share_equity(Some(Quantity::from("100")));
+    assert!(risk_engine.lot_size_enforced(&sse));
+
+    let other = InstrumentAny::Equity(
+        Equity::builder()
+            .instrument_id(InstrumentId::from("600519.SZSE"))
+            .raw_symbol(Symbol::from("600519"))
+            .currency(Currency::from("CNY"))
+            .price_precision(2)
+            .price_increment(Price::from("0.01"))
+            .lot_size(Quantity::from("100"))
+            .ts_event(UnixNanos::default())
+            .ts_init(UnixNanos::default())
+            .build()
+            .unwrap(),
+    );
+    assert!(!risk_engine.lot_size_enforced(&other));
 }

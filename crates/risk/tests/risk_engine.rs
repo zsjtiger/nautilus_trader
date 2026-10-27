@@ -216,6 +216,7 @@ fn test_deny_order_exceeding_max_notional(
         max_order_modify: RateLimit::new(5, DurationNanos::new(1000)),
         max_notional_per_order: AHashMap::new(),
         full_position_exit_venues: AHashSet::new(),
+        lot_size_enforced_venues: AHashSet::new(),
     };
 
     let mut risk_engine = get_risk_engine(
@@ -368,6 +369,7 @@ fn config_fixture(
         max_order_modify,
         max_notional_per_order,
         full_position_exit_venues: AHashSet::new(),
+        lot_size_enforced_venues: AHashSet::new(),
     }
 }
 
@@ -503,6 +505,7 @@ fn get_risk_engine(
         max_order_modify: RateLimit::new(5, DurationNanos::new(1000)),
         max_notional_per_order: AHashMap::new(),
         full_position_exit_venues: AHashSet::new(),
+        lot_size_enforced_venues: AHashSet::new(),
     });
     let clock = clock.unwrap_or(Rc::new(RefCell::new(VirtualClock::new())));
     let portfolio = Portfolio::new(
@@ -524,6 +527,7 @@ fn get_risk_engine_for_full_position_exit(
         max_order_modify: RateLimit::new(5, DurationNanos::new(1000)),
         max_notional_per_order: AHashMap::new(),
         full_position_exit_venues: [venue].into_iter().collect(),
+        lot_size_enforced_venues: AHashSet::new(),
     };
     get_risk_engine(cache, Some(config), None, false)
 }
@@ -12439,6 +12443,7 @@ fn test_set_trading_state_publishes_trading_state_changed_event() {
         max_order_modify: RateLimit::new(50, DurationNanos::from_secs(1)),
         max_notional_per_order: AHashMap::new(),
         full_position_exit_venues: [Venue::from("BINANCE")].into_iter().collect(),
+        lot_size_enforced_venues: AHashSet::new(),
     };
 
     let mut risk_engine = get_risk_engine(None, Some(config), None, false);
@@ -12506,6 +12511,7 @@ fn test_reset_restores_trading_state_and_config_notionals() {
         max_order_modify: RateLimit::new(5, DurationNanos::new(1000)),
         max_notional_per_order: config_notionals,
         full_position_exit_venues: AHashSet::new(),
+        lot_size_enforced_venues: AHashSet::new(),
     };
 
     let mut risk_engine = get_risk_engine(None, Some(config), None, false);

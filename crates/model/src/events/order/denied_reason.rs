@@ -129,6 +129,15 @@ pub enum OrderDeniedReason {
         min_quantity: Quantity,
     },
 
+    /// The order quantity is not a whole multiple of the instrument lot size.
+    #[error("QUANTITY_NOT_LOT_MULTIPLE: quantity={quantity}, lot_size={lot_size}")]
+    QuantityNotLotMultiple {
+        /// The order quantity.
+        quantity: Quantity,
+        /// The instrument's lot size.
+        lot_size: Quantity,
+    },
+
     /// The configured maximum notional per order is invalid.
     #[error("INVALID_MAX_NOTIONAL_PER_ORDER: instrument_id={instrument_id}, value={value}")]
     InvalidMaxNotionalPerOrder {
@@ -484,6 +493,7 @@ impl OrderDeniedCode {
             Self::QuantityConversionFailed => "The order quantity could not be converted for risk checks.",
             Self::QuantityExceedsMaximum => "The effective order quantity exceeds the instrument maximum.",
             Self::QuantityBelowMinimum => "The effective order quantity is below the instrument minimum.",
+            Self::QuantityNotLotMultiple => "The order quantity is not a multiple of the instrument lot size.",
             Self::InvalidMaxNotionalPerOrder => "The configured maximum notional per order is invalid.",
             Self::MissingExpireTime => "A GTD order is missing its expire time.",
             Self::ExpireTimeInPast => "The order's expire time is in the past.",
@@ -566,6 +576,14 @@ mod tests {
         assert_eq!(
             below.to_string(),
             "QUANTITY_BELOW_MINIMUM: effective=1, min=5"
+        );
+        let not_lot = OrderDeniedReason::QuantityNotLotMultiple {
+            quantity: Quantity::from("150"),
+            lot_size: Quantity::from("100"),
+        };
+        assert_eq!(
+            not_lot.to_string(),
+            "QUANTITY_NOT_LOT_MULTIPLE: quantity=150, lot_size=100"
         );
         assert_eq!(
             notional.to_string(),
