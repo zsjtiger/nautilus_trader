@@ -13,7 +13,7 @@
 #  limitations under the License.
 # -------------------------------------------------------------------------------------------------
 """
-Commission model for China A-share equities.
+Support for China A-share equities: exchange venues, instruments, and the commission model.
 """
 
 from __future__ import annotations
@@ -24,10 +24,23 @@ from typing import Any
 
 from nautilus_trader.execution import FeeModel
 from nautilus_trader.model import Currency
+from nautilus_trader.model import Equity
+from nautilus_trader.model import InstrumentId
 from nautilus_trader.model import Money
 from nautilus_trader.model import OrderSide
+from nautilus_trader.model import Price
+from nautilus_trader.model import Quantity
+from nautilus_trader.model import Symbol
+from nautilus_trader.model import Venue
 
 
+SSE = Venue("SSE")
+SZSE = Venue("SZSE")
+
+A_SHARE_LOT_SIZE = Quantity.from_int(100)
+A_SHARE_PRICE_INCREMENT = Price.from_str("0.01")
+
+_CODE_LENGTH = 6
 _FEN = Decimal("0.01")
 _ZERO = Decimal(0)
 
@@ -120,6 +133,55 @@ class AShareFeeModel(FeeModel):
             total += _fen(notional * self._transfer_fee_rate)
 
         return Money(total, self._currency)
+
+
+def ashare_equity(
+    code: str,
+    venue: Venue = SSE,
+    ts_event: int = 0,
+    ts_init: int = 0,
+) -> Equity:
+    """
+    Create an A-share equity instrument in CNY.
+
+    The instrument uses a price precision of 2 with a 0.01 increment and a 100-share lot size.
+
+    Parameters
+    ----------
+    code : str
+        The six-digit stock code, for example ``"600519"``.
+    venue : Venue, default SSE
+        The exchange, either ``SSE`` (Shanghai) or ``SZSE`` (Shenzhen).
+    ts_event : int, default 0
+        UNIX timestamp in nanoseconds of the instrument event.
+    ts_init : int, default 0
+        UNIX timestamp in nanoseconds when the instrument was initialized.
+
+    Returns
+    -------
+    Equity
+
+    Raises
+    ------
+    ValueError
+        If the code is not six digits, or the venue is not SSE or SZSE.
+
+    """
+    if len(code) != _CODE_LENGTH or not code.isdigit():
+        raise ValueError(f"A-share code must be six digits, was {code!r}")
+    if str(venue) not in {"SSE", "SZSE"}:
+        raise ValueError(f"A-share venue must be SSE or SZSE, was {venue}")
+
+    return Equity(
+        instrument_id=InstrumentId.from_str(f"{code}.{venue}"),
+        raw_symbol=Symbol(code),
+        currency=Currency.from_str("CNY"),
+        price_precision=2,
+        price_increment=A_SHARE_PRICE_INCREMENT,
+        lot_size=A_SHARE_LOT_SIZE,
+        ts_event=ts_event,
+        ts_init=ts_init,
+    )
 
 
 def _fen(amount: Decimal) -> Decimal:

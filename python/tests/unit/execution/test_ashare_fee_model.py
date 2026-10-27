@@ -22,12 +22,16 @@ from types import SimpleNamespace
 import pytest
 
 from nautilus_trader.execution import FeeModel
+from nautilus_trader.execution.ashare import SSE
+from nautilus_trader.execution.ashare import SZSE
 from nautilus_trader.execution.ashare import AShareFeeModel
+from nautilus_trader.execution.ashare import ashare_equity
 from nautilus_trader.model import InstrumentId
 from nautilus_trader.model import Money
 from nautilus_trader.model import OrderSide
 from nautilus_trader.model import Price
 from nautilus_trader.model import Quantity
+from nautilus_trader.model import Venue
 
 
 SSE_ID = InstrumentId.from_str("600519.SSE")
@@ -200,3 +204,63 @@ def test_negative_parameters_are_rejected(kwargs: dict[str, Decimal]) -> None:
     """
     with pytest.raises(ValueError, match="must be non-negative"):
         AShareFeeModel(**kwargs)
+
+
+def test_ashare_venues_use_exchange_codes() -> None:
+    """
+    Test the exchange venue constants use the exchange codes.
+    """
+    assert str(SSE) == "SSE"
+    assert str(SZSE) == "SZSE"
+
+
+def test_ashare_equity_on_sse_has_a_share_rules() -> None:
+    """
+    Test a Shanghai instrument uses CNY, 0.01 ticks, and 100-share lots.
+    """
+    instrument = ashare_equity("600519")
+
+    assert str(instrument.id) == "600519.SSE"
+    assert str(instrument.raw_symbol) == "600519"
+    assert str(instrument.quote_currency) == "CNY"
+    assert instrument.price_precision == 2
+    assert instrument.price_increment == Price.from_str("0.01")
+    assert instrument.size_precision == 0
+    assert instrument.lot_size == Quantity.from_int(100)
+
+
+def test_ashare_equity_on_szse_uses_the_szse_venue() -> None:
+    """
+    Test a Shenzhen instrument is placed on the SZSE venue.
+    """
+    instrument = ashare_equity("000001", SZSE)
+
+    assert str(instrument.id) == "000001.SZSE"
+    assert instrument.id.venue == Venue("SZSE")
+
+
+def test_ashare_equity_passes_through_timestamps() -> None:
+    """
+    Test the event and init timestamps are stored on the instrument.
+    """
+    instrument = ashare_equity("600519", ts_event=1, ts_init=2)
+
+    assert instrument.ts_event == 1
+    assert instrument.ts_init == 2
+
+
+@pytest.mark.parametrize("code", ["60051", "6005190", "60051A", "", "600 19"])
+def test_ashare_equity_rejects_codes_that_are_not_six_digits(code: str) -> None:
+    """
+    Test a code must be exactly six digits.
+    """
+    with pytest.raises(ValueError, match="six digits"):
+        ashare_equity(code)
+
+
+def test_ashare_equity_rejects_a_venue_that_is_not_an_a_share_exchange() -> None:
+    """
+    Test an unrelated venue is rejected.
+    """
+    with pytest.raises(ValueError, match="SSE or SZSE"):
+        ashare_equity("600519", Venue("NYSE"))
