@@ -85,12 +85,15 @@ class _LimitOnce(Strategy):
             self.submit_order(self.order)
 
 
-def _run(price: str, with_reference: bool) -> OrderStatus:
+def _run(price: str, with_reference: bool, price_limit_ratios: dict | None = None) -> OrderStatus:
     instrument = ashare_equity("600519")
     engine = BacktestEngine(
         BacktestEngineConfig(
             trader_id=TraderId("TEST-001"),
-            risk_engine=RiskEngineConfig(price_limit_venues=[SSE]),
+            risk_engine=RiskEngineConfig(
+                price_limit_venues=[SSE],
+                price_limit_ratios=price_limit_ratios or {},
+            ),
         ),
     )
     engine.add_venue(
@@ -145,19 +148,25 @@ def _run(price: str, with_reference: bool) -> OrderStatus:
 
 
 @pytest.mark.parametrize(
-    ("price", "with_reference", "expected"),
+    ("price", "with_reference", "price_limit_ratios", "expected"),
     [
-        ("1150.00", True, OrderStatus.DENIED),
-        ("1050.00", True, OrderStatus.FILLED),
-        ("1050.00", False, OrderStatus.DENIED),
+        ("1150.00", True, None, OrderStatus.DENIED),
+        ("1050.00", True, None, OrderStatus.FILLED),
+        ("1050.00", False, None, OrderStatus.DENIED),
+        # ST stock with a 5% limit: 1060 is above the 1050 upper limit.
+        ("1060.00", True, {"600519.SSE": "0.05"}, OrderStatus.DENIED),
+        ("1040.00", True, {"600519.SSE": "0.05"}, OrderStatus.FILLED),
+        # Without the override the 10% board limit allows 1060.
+        ("1060.00", True, None, OrderStatus.FILLED),
     ],
 )
 def test_limit_order_must_be_within_daily_price_limits(
     price: str,
     with_reference: bool,
+    price_limit_ratios: dict | None,
     expected: OrderStatus,
 ) -> None:
     """
-    Test a limit above the 10% upper limit is denied, and a missing reference close denies.
+    Test daily price limits, including a per-instrument ratio override for ST stocks.
     """
-    assert _run(price, with_reference) == expected
+    assert _run(price, with_reference, price_limit_ratios) == expected

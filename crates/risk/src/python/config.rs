@@ -71,6 +71,24 @@ fn parse_rate_limit(name: &str, value: &str) -> PyResult<RateLimit> {
         .map_err(|e| to_pyvalue_err(format!("invalid `{name}`: {e}")))
 }
 
+fn parse_price_limit_ratios(
+    raw: HashMap<String, String>,
+) -> PyResult<AHashMap<InstrumentId, Decimal>> {
+    raw.into_iter()
+        .map(|(instrument_id, ratio)| {
+            let parsed_id = InstrumentId::from_str(&instrument_id).map_err(|e| {
+                to_pyvalue_err(format!(
+                    "invalid `price_limit_ratios` instrument ID {instrument_id:?}: {e}"
+                ))
+            })?;
+            let parsed_ratio = Decimal::from_str(&ratio).map_err(|e| {
+                to_pyvalue_err(format!("invalid `price_limit_ratios` ratio {ratio:?}: {e}"))
+            })?;
+            Ok((parsed_id, parsed_ratio))
+        })
+        .collect()
+}
+
 fn coerce_max_notional_per_order(
     raw: HashMap<String, Py<PyAny>>,
 ) -> PyResult<AHashMap<InstrumentId, Decimal>> {
@@ -108,6 +126,7 @@ impl RiskEngineConfig {
         lot_size_enforced_venues = None,
         t_plus_one_venues = None,
         price_limit_venues = None,
+        price_limit_ratios = None,
         debug = None,
     ))]
     fn py_new(
@@ -119,6 +138,7 @@ impl RiskEngineConfig {
         lot_size_enforced_venues: Option<Vec<Venue>>,
         t_plus_one_venues: Option<Vec<Venue>>,
         price_limit_venues: Option<Vec<Venue>>,
+        price_limit_ratios: Option<HashMap<String, String>>,
         debug: Option<bool>,
     ) -> PyResult<Self> {
         let default = Self::default();
@@ -147,6 +167,10 @@ impl RiskEngineConfig {
         let price_limit_venues = price_limit_venues
             .map(|venues| venues.into_iter().collect())
             .unwrap_or(default.price_limit_venues);
+        let price_limit_ratios = match price_limit_ratios {
+            Some(raw) => parse_price_limit_ratios(raw)?,
+            None => default.price_limit_ratios,
+        };
 
         Self::builder()
             .bypass(bypass.unwrap_or(default.bypass))
@@ -157,6 +181,7 @@ impl RiskEngineConfig {
             .lot_size_enforced_venues(lot_size_enforced_venues)
             .t_plus_one_venues(t_plus_one_venues)
             .price_limit_venues(price_limit_venues)
+            .price_limit_ratios(price_limit_ratios)
             .debug(debug.unwrap_or(default.debug))
             .build()
             .map_err(to_pyvalue_err)
@@ -211,6 +236,15 @@ impl RiskEngineConfig {
             .collect::<Vec<_>>();
         venues.sort_unstable();
         venues
+    }
+
+    #[getter]
+    #[pyo3(name = "price_limit_ratios")]
+    fn py_price_limit_ratios(&self) -> HashMap<String, String> {
+        self.price_limit_ratios
+            .iter()
+            .map(|(id, ratio)| (id.to_string(), ratio.to_string()))
+            .collect()
     }
 
     #[getter]

@@ -1935,7 +1935,12 @@ impl RiskEngine {
             return Some(OrderDeniedReason::PriceLimitReferenceMissing { instrument_id });
         };
 
-        let ratio = price_limit_ratio(instrument.raw_symbol().as_str());
+        let ratio = self
+            .config
+            .price_limit_ratios
+            .get(&instrument_id)
+            .copied()
+            .unwrap_or_else(|| price_limit_ratio(instrument.raw_symbol().as_str()));
         let precision = instrument.price_precision();
         let (lower, upper) = price_limit_bounds(previous_close, ratio, u32::from(precision));
 

@@ -79,6 +79,11 @@ pub struct RiskEngineConfig {
     /// (300, 301, 688) and 10% otherwise. Empty by default.
     #[builder(default)]
     pub price_limit_venues: AHashSet<Venue>,
+    /// Daily price limit ratios that override the board default for specific instruments.
+    ///
+    /// Use `0.05` for ST stocks, which trade within 5%. Empty by default.
+    #[builder(default)]
+    pub price_limit_ratios: AHashMap<InstrumentId, Decimal>,
     /// Whether to emit additional debug logs.
     #[builder(default)]
     pub debug: bool,

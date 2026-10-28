@@ -219,6 +219,9 @@ pub struct LiveRiskEngineConfig {
     /// Venues whose limit orders must fall within the daily price limits. Empty by default.
     #[builder(default)]
     pub price_limit_venues: Vec<Venue>,
+    /// Daily price limit ratios that override the board default for specific instruments.
+    #[builder(default)]
+    pub price_limit_ratios: HashMap<String, String>,
     /// If debug mode is active (will provide extra debug logging).
     #[builder(default)]
     pub debug: bool,
@@ -254,6 +257,17 @@ impl From<LiveRiskEngineConfig> for RiskEngineConfig {
         let lot_size_enforced_venues = config.lot_size_enforced_venues.into_iter().collect();
         let t_plus_one_venues = config.t_plus_one_venues.into_iter().collect();
         let price_limit_venues = config.price_limit_venues.into_iter().collect();
+        let price_limit_ratios = config
+            .price_limit_ratios
+            .into_iter()
+            .map(|(instrument_id, ratio)| {
+                let instrument_id = InstrumentId::from_str(&instrument_id)
+                    .expect("validate_runtime_support must run before RiskEngineConfig conversion");
+                let ratio = Decimal::from_str(&ratio)
+                    .expect("validate_runtime_support must run before RiskEngineConfig conversion");
+                (instrument_id, ratio)
+            })
+            .collect::<AHashMap<_, _>>();
 
         Self {
             bypass: config.bypass,
@@ -272,6 +286,7 @@ impl From<LiveRiskEngineConfig> for RiskEngineConfig {
             lot_size_enforced_venues,
             t_plus_one_venues,
             price_limit_venues,
+            price_limit_ratios,
             debug: config.debug,
         }
     }
