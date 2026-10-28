@@ -21,17 +21,25 @@ from types import SimpleNamespace
 
 import pytest
 
+from nautilus_trader.backtest import BacktestEngine
+from nautilus_trader.config import BacktestEngineConfig
 from nautilus_trader.execution import FeeModel
 from nautilus_trader.execution.ashare import SSE
 from nautilus_trader.execution.ashare import SZSE
 from nautilus_trader.execution.ashare import AShareFeeModel
 from nautilus_trader.execution.ashare import ashare_equity
+from nautilus_trader.model import AccountType
+from nautilus_trader.model import Currency
 from nautilus_trader.model import InstrumentId
 from nautilus_trader.model import Money
+from nautilus_trader.model import OmsType
 from nautilus_trader.model import OrderSide
 from nautilus_trader.model import Price
 from nautilus_trader.model import Quantity
+from nautilus_trader.model import QuoteTick
+from nautilus_trader.model import TraderId
 from nautilus_trader.model import Venue
+from nautilus_trader.trading import Strategy as StrategyBase
 
 
 SSE_ID = InstrumentId.from_str("600519.SSE")
@@ -264,3 +272,69 @@ def test_ashare_equity_rejects_a_venue_that_is_not_an_a_share_exchange() -> None
     """
     with pytest.raises(ValueError, match="SSE or SZSE"):
         ashare_equity("600519", Venue("NYSE"))
+
+
+class _RoundTrip(StrategyBase):
+    def __init__(self, instrument_id: InstrumentId) -> None:
+        super().__init__()
+        self._instrument_id = instrument_id
+        self._ticks = 0
+
+    def on_start(self) -> None:
+        self.subscribe_quotes(self._instrument_id)
+
+    def on_quote(self, _tick: QuoteTick) -> None:
+        self._ticks += 1
+        if self._ticks == 1:
+            self.submit_order(
+                self.order_factory.market(
+                    self._instrument_id, OrderSide.BUY, Quantity.from_int(100)
+                )
+            )
+        elif self._ticks == 3:
+            self.submit_order(
+                self.order_factory.market(
+                    self._instrument_id, OrderSide.SELL, Quantity.from_int(100)
+                )
+            )
+
+
+def test_backtest_engine_applies_ashare_commission_to_round_trip() -> None:
+    """
+    Test a SSE round trip charges buy 26.00 and sell 76.00 CNY through the engine.
+    """
+    instrument = ashare_equity("600519")
+    engine = BacktestEngine(BacktestEngineConfig(trader_id=TraderId("TEST-001")))
+    engine.add_venue(
+        venue=SSE,
+        oms_type=OmsType.NETTING,
+        account_type=AccountType.CASH,
+        base_currency=Currency.from_str("CNY"),
+        starting_balances=[Money(1_000_000, Currency.from_str("CNY"))],
+        fee_model=AShareFeeModel(),
+    )
+    engine.add_instrument(instrument)
+    engine.add_data(
+        [
+            QuoteTick(
+                instrument_id=instrument.id,
+                bid_price=Price.from_str("999.99"),
+                ask_price=Price.from_str("1000.00"),
+                bid_size=Quantity.from_int(10_000),
+                ask_size=Quantity.from_int(10_000),
+                ts_event=i,
+                ts_init=i,
+            )
+            for i in range(1, 5)
+        ],
+    )
+    engine.add_strategy(_RoundTrip(instrument.id))
+    engine.run()
+
+    orders = engine.cache.orders()
+    assert len(orders) == 2
+    expected = {OrderSide.BUY: Decimal("26.00"), OrderSide.SELL: Decimal("76.00")}
+    for order in orders:
+        total = sum((c.as_decimal() for c in order.commissions().values()), Decimal(0))
+        assert total == expected[order.side]
+    engine.dispose()
