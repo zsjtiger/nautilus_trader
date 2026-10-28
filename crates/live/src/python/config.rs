@@ -19,7 +19,7 @@
 //! configuration values and reporting invalid inputs as Python exceptions. Includes routing,
 //! instrument-provider, plugin, and queue-monitor settings used when constructing a live node.
 
-use std::{collections::HashMap, hash::BuildHasher, time::Duration};
+use std::{collections::HashMap, hash::BuildHasher, str::FromStr, time::Duration};
 
 use nautilus_common::{
     cache::CacheConfig, enums::Environment, logging::logger::LoggerConfig,
@@ -360,15 +360,13 @@ impl LiveRiskEngineConfig {
         let price_limit_venues = price_limit_venues.unwrap_or_default();
         let price_limit_ratios = price_limit_ratios.unwrap_or_default();
         for (instrument_id, ratio) in &price_limit_ratios {
-            InstrumentId::from_str(instrument_id).map_err(|e| {
-                config_error_to_pyvalue_err(ConfigError::from(format!(
+            nautilus_model::identifiers::InstrumentId::from_str(instrument_id).map_err(|e| {
+                to_pyvalue_err(format!(
                     "invalid `price_limit_ratios` instrument ID {instrument_id:?}: {e}"
-                )))
+                ))
             })?;
-            Decimal::from_str(ratio).map_err(|e| {
-                config_error_to_pyvalue_err(ConfigError::from(format!(
-                    "invalid `price_limit_ratios` ratio {ratio:?}: {e}"
-                )))
+            rust_decimal::Decimal::from_str(ratio).map_err(|e| {
+                to_pyvalue_err(format!("invalid `price_limit_ratios` ratio {ratio:?}: {e}"))
             })?;
         }
 
