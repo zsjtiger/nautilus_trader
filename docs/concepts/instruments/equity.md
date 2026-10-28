@@ -89,6 +89,27 @@ aapl = Equity(
 )
 ```
 
+## China A-share equities
+
+`nautilus_trader.execution.ashare` provides helpers for China A-share stocks. The helpers build
+`Equity` instruments and a commission model; they do not connect to a venue.
+
+- `ashare_equity(code, venue=SSE)` creates a CNY equity with a price precision of 2, a 0.01 price
+  increment, and a 100-share lot size. The code must be six digits. The venue must be `SSE` or `SZSE`.
+- `AShareFeeModel` charges brokerage commission with a per-fill minimum, stamp duty on sells, and a
+  transfer fee on `SSE` fills. Pass it as `fee_model` to `add_venue()`. The rates are parameters
+  with defaults that change over time, so check them against the current schedules.
+
+To reject orders whose quantity is not a whole multiple of the lot size, list the venue in
+`RiskEngineConfig.lot_size_enforced_venues`. The check is off by default. Such orders are denied with
+`QUANTITY_NOT_LOT_MULTIPLE`. Orders priced in quote currency and validated full-position exits are not
+checked.
+
+:::note
+A-share support does not yet enforce T+1 settlement or daily price limits. A strategy must handle
+both itself.
+:::
+
 ## Adapters
 
 **Adapters that create or consume `Equity` instruments include**:
