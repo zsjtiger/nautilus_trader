@@ -357,3 +357,25 @@ fn test_lot_size_enforcement_applies_only_to_configured_venues() {
     );
     assert!(!risk_engine.lot_size_enforced(&other));
 }
+
+#[rstest]
+fn test_trading_day_rolls_over_at_china_midnight() {
+    // Midnight UTC+8 of trading day 5 is 16:00 UTC on the previous calendar day.
+    let midnight_china = 5 * NANOSECONDS_IN_DAY - CHINA_UTC_OFFSET_NS;
+
+    assert_eq!(trading_day(midnight_china), 5);
+    assert_eq!(trading_day(midnight_china - 1), 4);
+}
+
+#[rstest]
+#[case(dec!(100), dec!(0), dec!(100))]
+#[case(dec!(100), dec!(100), dec!(0))]
+#[case(dec!(100), dec!(150), dec!(0))]
+#[case(dec!(300), dec!(100), dec!(200))]
+fn test_sellable_quantity_excludes_shares_bought_today(
+    #[case] net_long: Decimal,
+    #[case] bought_today: Decimal,
+    #[case] expected: Decimal,
+) {
+    assert_eq!(sellable_quantity(net_long, bought_today), expected);
+}

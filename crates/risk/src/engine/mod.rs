@@ -38,7 +38,10 @@ use nautilus_common::{
     runner::{TradingCommandMessage, try_get_trading_cmd_sender},
     throttler::Throttler,
 };
-use nautilus_core::{UUID4, WeakCell};
+use nautilus_core::{
+    UUID4, WeakCell,
+    datetime::{NANOSECONDS_IN_DAY, NANOSECONDS_IN_SECOND},
+};
 use nautilus_execution::trailing::{
     trailing_stop_calculate_with_bid_ask, trailing_stop_calculate_with_last,
 };
@@ -81,6 +84,7 @@ pub struct RiskEngine {
     throttler_submit: Throttler<TradingCommand, SubmitCommandFn>,
     throttler_modify: Throttler<ModifyOrder, ModifyOrderFn>,
     reservations: Vec<Reservation>,
+    t_plus_one_buys: RefCell<AHashMap<InstrumentId, TodayBuys>>,
     command_count: u64,
     event_count: u64,
 }
@@ -123,6 +127,7 @@ impl RiskEngine {
             throttler_submit,
             throttler_modify,
             reservations: Vec::new(),
+            t_plus_one_buys: RefCell::new(AHashMap::new()),
             command_count: 0,
             event_count: 0,
         }
@@ -566,6 +571,15 @@ impl RiskEngine {
             "lot_size_enforced_venues".to_string(),
             lot_size_enforced_venues.join(","),
         );
+
+        let mut t_plus_one_venues = self
+            .config
+            .t_plus_one_venues
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+        t_plus_one_venues.sort_unstable();
+        map.insert("t_plus_one_venues".to_string(), t_plus_one_venues.join(","));
 
         map.insert("debug".to_string(), self.config.debug.to_string());
         map
@@ -1226,7 +1240,14 @@ impl RiskEngine {
             order.is_quote_quantity(),
             full_position_exit,
             self.lot_size_enforced(instrument),
-        );
+        )
+        .or_else(|| {
+            if full_position_exit {
+                None
+            } else {
+                self.check_t_plus_one(instrument, order)
+            }
+        });
 
         if let Some(reason) = reason {
             self.deny_order(order, &reason.to_string());
@@ -1769,6 +1790,80 @@ impl RiskEngine {
         None
     }
 
+    fn record_t_plus_one_buy(
+        &self,
+        instrument_id: InstrumentId,
+        trading_day: u64,
+        quantity: Decimal,
+    ) {
+        let mut buys = self.t_plus_one_buys.borrow_mut();
+        let entry = buys.entry(instrument_id).or_insert(TodayBuys {
+            trading_day,
+            quantity: Decimal::ZERO,
+        });
+
+        if entry.trading_day != trading_day {
+            entry.trading_day = trading_day;
+            entry.quantity = Decimal::ZERO;
+        }
+        entry.quantity += quantity;
+    }
+
+    /// Denies a sell that exceeds the long shares sellable today under T+1 settlement.
+    ///
+    /// Sellable shares are the net long position, less shares bought today, less quantity
+    /// already committed to other open sell orders.
+    fn check_t_plus_one(
+        &self,
+        instrument: &InstrumentAny,
+        order: &OrderAny,
+    ) -> Option<OrderDeniedReason> {
+        let instrument_id = instrument.id();
+
+        if order.order_side() != OrderSide::Sell
+            || !self.config.t_plus_one_venues.contains(&instrument_id.venue)
+        {
+            return None;
+        }
+
+        let today = trading_day(self.clock.borrow().timestamp_ns().as_u64());
+        let bought_today = self
+            .t_plus_one_buys
+            .borrow()
+            .get(&instrument_id)
+            .filter(|buys| buys.trading_day == today)
+            .map_or(Decimal::ZERO, |buys| buys.quantity);
+
+        let cache = self.cache.borrow();
+        let net_long: Decimal = cache
+            .positions_open(None, Some(&instrument_id), None, None, None)
+            .iter()
+            .map(|position| position.signed_decimal_qty())
+            .filter(|quantity| quantity.is_sign_positive())
+            .sum();
+        let committed_sells: Decimal = cache
+            .orders_open(None, Some(&instrument_id), None, None, Some(OrderSide::Sell))
+            .iter()
+            .filter(|open| open.client_order_id() != order.client_order_id())
+            .map(|open| open.leaves_qty().as_decimal())
+            .sum();
+
+        let sellable = sellable_quantity(net_long, bought_today) - committed_sells;
+        let sellable = sellable.max(Decimal::ZERO);
+        let quantity = order.quantity();
+
+        if quantity.as_decimal() <= sellable {
+            return None;
+        }
+
+        let precision = instrument.size_precision();
+        Some(OrderDeniedReason::SellableQuantityExceeded {
+            quantity,
+            sellable_quantity: Quantity::from_decimal_dp(sellable, precision)
+                .unwrap_or_else(|_| Quantity::zero(precision)),
+        })
+    }
+
     fn lot_size_enforced(&self, instrument: &InstrumentAny) -> bool {
         self.config
             .lot_size_enforced_venues
@@ -2021,10 +2116,19 @@ impl RiskEngine {
     }
 
     fn handle_event(&self, event: &OrderEventAny) {
-        // We intend to extend the risk engine to be able to handle additional events.
-        // For now we just log.
         if self.config.debug {
             log::debug!("{RECV}{EVT} {event}");
+        }
+
+        if let OrderEventAny::Filled(fill) = event
+            && fill.order_side == OrderSide::Buy
+            && self.config.t_plus_one_venues.contains(&fill.instrument_id.venue)
+        {
+            self.record_t_plus_one_buy(
+                fill.instrument_id,
+                trading_day(fill.ts_event.as_u64()),
+                fill.last_qty.as_decimal(),
+            );
         }
     }
 
@@ -3107,6 +3211,26 @@ fn cash_or_wallet_account(account: &AccountAny) -> Option<&dyn Account> {
         AccountAny::Wallet(wallet) => Some(wallet),
         AccountAny::Margin(_) | AccountAny::Betting(_) => None,
     }
+}
+
+/// Offset from UTC to China Standard Time, which defines the trading day for T+1 settlement.
+const CHINA_UTC_OFFSET_NS: u64 = 8 * 60 * 60 * NANOSECONDS_IN_SECOND;
+
+/// Returns the China trading day index for a UNIX timestamp in nanoseconds.
+fn trading_day(ts_ns: u64) -> u64 {
+    (ts_ns + CHINA_UTC_OFFSET_NS) / NANOSECONDS_IN_DAY
+}
+
+/// Returns the sellable quantity given the net long position and shares bought today.
+fn sellable_quantity(net_long: Decimal, bought_today: Decimal) -> Decimal {
+    (net_long - bought_today).max(Decimal::ZERO)
+}
+
+/// Shares bought on one trading day of an instrument.
+#[derive(Debug, Clone, Copy)]
+struct TodayBuys {
+    trading_day: u64,
+    quantity: Decimal,
 }
 
 #[cfg(test)]

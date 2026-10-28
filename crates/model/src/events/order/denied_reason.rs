@@ -138,6 +138,15 @@ pub enum OrderDeniedReason {
         lot_size: Quantity,
     },
 
+    /// The sell quantity exceeds the shares that can be sold today under T+1 settlement.
+    #[error("SELLABLE_QUANTITY_EXCEEDED: quantity={quantity}, sellable={sellable_quantity}")]
+    SellableQuantityExceeded {
+        /// The sell quantity.
+        quantity: Quantity,
+        /// The quantity that can be sold today.
+        sellable_quantity: Quantity,
+    },
+
     /// The configured maximum notional per order is invalid.
     #[error("INVALID_MAX_NOTIONAL_PER_ORDER: instrument_id={instrument_id}, value={value}")]
     InvalidMaxNotionalPerOrder {
@@ -494,6 +503,7 @@ impl OrderDeniedCode {
             Self::QuantityExceedsMaximum => "The effective order quantity exceeds the instrument maximum.",
             Self::QuantityBelowMinimum => "The effective order quantity is below the instrument minimum.",
             Self::QuantityNotLotMultiple => "The order quantity is not a multiple of the instrument lot size.",
+            Self::SellableQuantityExceeded => "The sell quantity exceeds the shares sellable today under T+1 settlement.",
             Self::InvalidMaxNotionalPerOrder => "The configured maximum notional per order is invalid.",
             Self::MissingExpireTime => "A GTD order is missing its expire time.",
             Self::ExpireTimeInPast => "The order's expire time is in the past.",
@@ -584,6 +594,14 @@ mod tests {
         assert_eq!(
             not_lot.to_string(),
             "QUANTITY_NOT_LOT_MULTIPLE: quantity=150, lot_size=100"
+        );
+        let sellable = OrderDeniedReason::SellableQuantityExceeded {
+            quantity: Quantity::from("200"),
+            sellable_quantity: Quantity::from("100"),
+        };
+        assert_eq!(
+            sellable.to_string(),
+            "SELLABLE_QUANTITY_EXCEEDED: quantity=200, sellable=100"
         );
         assert_eq!(
             notional.to_string(),

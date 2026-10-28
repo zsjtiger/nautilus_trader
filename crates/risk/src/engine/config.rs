@@ -68,6 +68,11 @@ pub struct RiskEngineConfig {
     /// enforced unless a venue is listed here.
     #[builder(default)]
     pub lot_size_enforced_venues: AHashSet<Venue>,
+    /// Venues whose sells must respect T+1 settlement for shares bought on the same trading day.
+    ///
+    /// A trading day runs from midnight in UTC+8 (China Standard Time). Empty by default.
+    #[builder(default)]
+    pub t_plus_one_venues: AHashSet<Venue>,
     /// Whether to emit additional debug logs.
     #[builder(default)]
     pub debug: bool,
@@ -130,6 +135,7 @@ mod tests {
 
         assert!(config.full_position_exit_venues.is_empty());
         assert!(config.lot_size_enforced_venues.is_empty());
+        assert!(config.t_plus_one_venues.is_empty());
     }
 
     #[rstest]

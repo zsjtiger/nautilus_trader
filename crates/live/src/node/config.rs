@@ -211,6 +211,11 @@ pub struct LiveRiskEngineConfig {
     /// Instruments without a lot size are not checked. Empty by default.
     #[builder(default)]
     pub lot_size_enforced_venues: Vec<Venue>,
+    /// Venues whose sells must respect T+1 settlement for shares bought on the same trading day.
+    ///
+    /// A trading day runs from midnight in UTC+8. Empty by default.
+    #[builder(default)]
+    pub t_plus_one_venues: Vec<Venue>,
     /// If debug mode is active (will provide extra debug logging).
     #[builder(default)]
     pub debug: bool,
@@ -244,6 +249,7 @@ impl From<LiveRiskEngineConfig> for RiskEngineConfig {
 
         let full_position_exit_venues = config.full_position_exit_venues.into_iter().collect();
         let lot_size_enforced_venues = config.lot_size_enforced_venues.into_iter().collect();
+        let t_plus_one_venues = config.t_plus_one_venues.into_iter().collect();
 
         Self {
             bypass: config.bypass,
@@ -260,6 +266,7 @@ impl From<LiveRiskEngineConfig> for RiskEngineConfig {
             max_notional_per_order,
             full_position_exit_venues,
             lot_size_enforced_venues,
+            t_plus_one_venues,
             debug: config.debug,
         }
     }
