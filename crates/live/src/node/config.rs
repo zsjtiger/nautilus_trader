@@ -206,6 +206,11 @@ pub struct LiveRiskEngineConfig {
     /// Validated exits skip bounds that apply only to their placeholder quantity and notional.
     #[builder(default)]
     pub full_position_exit_venues: Vec<Venue>,
+    /// Venues whose orders must have a quantity that is a whole multiple of the instrument lot size.
+    ///
+    /// Instruments without a lot size are not checked. Empty by default.
+    #[builder(default)]
+    pub lot_size_enforced_venues: Vec<Venue>,
     /// If debug mode is active (will provide extra debug logging).
     #[builder(default)]
     pub debug: bool,
@@ -238,6 +243,7 @@ impl From<LiveRiskEngineConfig> for RiskEngineConfig {
             .collect::<AHashMap<_, _>>();
 
         let full_position_exit_venues = config.full_position_exit_venues.into_iter().collect();
+        let lot_size_enforced_venues = config.lot_size_enforced_venues.into_iter().collect();
 
         Self {
             bypass: config.bypass,
@@ -253,6 +259,7 @@ impl From<LiveRiskEngineConfig> for RiskEngineConfig {
             .expect("validate_runtime_support must run before RiskEngineConfig conversion"),
             max_notional_per_order,
             full_position_exit_venues,
+            lot_size_enforced_venues,
             debug: config.debug,
         }
     }
@@ -1615,6 +1622,7 @@ mean_dispatch_ns_clear = 700
                 "1000.5".to_string(),
             )]),
             full_position_exit_venues: vec![Venue::from("BINANCE")],
+            lot_size_enforced_venues: vec![Venue::from("SSE")],
             debug: true,
             ..Default::default()
         };
@@ -1637,6 +1645,10 @@ mean_dispatch_ns_clear = 700
         assert_eq!(
             converted.full_position_exit_venues,
             [Venue::from("BINANCE")].into_iter().collect(),
+        );
+        assert_eq!(
+            converted.lot_size_enforced_venues,
+            [Venue::from("SSE")].into_iter().collect(),
         );
         assert!(converted.debug);
     }

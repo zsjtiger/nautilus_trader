@@ -330,13 +330,14 @@ impl LiveDataEngineConfig {
 impl LiveRiskEngineConfig {
     /// Configuration for live risk engines.
     #[new]
-    #[pyo3(signature = (bypass=None, max_order_submit_rate=None, max_order_modify_rate=None, max_notional_per_order=None, full_position_exit_venues=None, debug=None))]
+    #[pyo3(signature = (bypass=None, max_order_submit_rate=None, max_order_modify_rate=None, max_notional_per_order=None, full_position_exit_venues=None, lot_size_enforced_venues=None, debug=None))]
     fn py_new(
         bypass: Option<bool>,
         max_order_submit_rate: Option<String>,
         max_order_modify_rate: Option<String>,
         max_notional_per_order: Option<HashMap<String, Py<PyAny>>>,
         full_position_exit_venues: Option<Vec<Venue>>,
+        lot_size_enforced_venues: Option<Vec<Venue>>,
         debug: Option<bool>,
     ) -> PyResult<Self> {
         let default = Self::default();
@@ -351,6 +352,7 @@ impl LiveRiskEngineConfig {
         };
 
         let full_position_exit_venues = full_position_exit_venues.unwrap_or_default();
+        let lot_size_enforced_venues = lot_size_enforced_venues.unwrap_or_default();
 
         parse_rate_limit(
             "LiveRiskEngineConfig.max_order_submit_rate",
@@ -374,6 +376,7 @@ impl LiveRiskEngineConfig {
             max_order_modify_rate,
             max_notional_per_order,
             full_position_exit_venues,
+            lot_size_enforced_venues,
             debug: debug.unwrap_or(default.debug),
             qsize: default.qsize,
         })
@@ -407,6 +410,12 @@ impl LiveRiskEngineConfig {
     #[pyo3(name = "full_position_exit_venues")]
     fn py_full_position_exit_venues(&self) -> Vec<Venue> {
         self.full_position_exit_venues.clone()
+    }
+
+    #[getter]
+    #[pyo3(name = "lot_size_enforced_venues")]
+    fn py_lot_size_enforced_venues(&self) -> Vec<Venue> {
+        self.lot_size_enforced_venues.clone()
     }
 
     #[getter]
