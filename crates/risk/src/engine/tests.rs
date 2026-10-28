@@ -318,13 +318,8 @@ fn test_check_quantity_skips_lot_check_for_quote_quantity_and_full_position_exit
 fn test_check_quantity_skips_lot_check_when_instrument_has_no_lot_size() {
     let instrument = a_share_equity(None);
 
-    let reason = RiskEngine::check_quantity(
-        &instrument,
-        Some(Quantity::from("150")),
-        false,
-        false,
-        true,
-    );
+    let reason =
+        RiskEngine::check_quantity(&instrument, Some(Quantity::from("150")), false, false, true);
 
     assert_eq!(reason, None);
 }
