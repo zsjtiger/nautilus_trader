@@ -955,6 +955,14 @@ mod tests {
                 effective_quantity: Quantity::from("1"),
                 min_quantity: Quantity::from("5"),
             },
+            OrderDeniedReason::QuantityNotLotMultiple {
+                quantity: Quantity::from("150"),
+                lot_size: Quantity::from("100"),
+            },
+            OrderDeniedReason::SellableQuantityExceeded {
+                quantity: Quantity::from("200"),
+                sellable_quantity: Quantity::from("100"),
+            },
             OrderDeniedReason::InvalidMaxNotionalPerOrder {
                 instrument_id: InstrumentId::from("AUD/USD.SIM"),
                 value: Decimal::ONE,
