@@ -110,8 +110,16 @@ To enforce T+1 settlement, list the venue in `RiskEngineConfig.t_plus_one_venues
 same trading day and less quantity committed to other open sell orders. A trading day runs from midnight
 UTC+8. The check applies to submissions and modifications, except validated full-position exits.
 
+To enforce daily price limits, list the venue in `RiskEngineConfig.price_limit_venues`. Limit orders and
+limit modifications are denied with `PRICE_OUTSIDE_LIMIT` when the price falls outside the limits. The
+limits are set from the previous trading day's close, using the most recent cached daily bar dated before
+today: 20% for STAR and ChiNext codes (300, 301, 688) and 10% otherwise, rounded half away from zero to
+the price precision. If no previous close is cached, the order is denied with
+`PRICE_LIMIT_REFERENCE_MISSING`. Load daily bars for the instrument before trading on a price-limit venue.
+
 :::note
-A-share support does not yet enforce daily price limits. A strategy must handle them itself.
+The price limits do not yet cover ST stocks (5%) or the new-listing exemptions, and market orders are not
+checked against the limits.
 :::
 
 ## Adapters

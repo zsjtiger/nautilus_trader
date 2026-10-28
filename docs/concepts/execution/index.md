@@ -427,6 +427,7 @@ Price and quantity checks can also emit these code-led reasons on `OrderModifyRe
 - `QUANTITY_BELOW_MINIMUM`
 - `QUANTITY_NOT_LOT_MULTIPLE`, only for venues listed in `RiskEngineConfig.lot_size_enforced_venues`
 - `SELLABLE_QUANTITY_EXCEEDED`, only for venues listed in `RiskEngineConfig.t_plus_one_venues`
+- `PRICE_OUTSIDE_LIMIT` and `PRICE_LIMIT_REFERENCE_MISSING`, only for venues listed in `RiskEngineConfig.price_limit_venues`
 
 For price reasons, `field` is `PRICE` or `TRIGGER_PRICE` and names the rejected command field. Other
 modification rejection reasons stay free-form. `OrderDeniedCode` does not classify them.
