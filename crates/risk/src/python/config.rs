@@ -107,6 +107,7 @@ impl RiskEngineConfig {
         full_position_exit_venues = None,
         lot_size_enforced_venues = None,
         t_plus_one_venues = None,
+        price_limit_venues = None,
         debug = None,
     ))]
     fn py_new(
@@ -117,6 +118,7 @@ impl RiskEngineConfig {
         full_position_exit_venues: Option<Vec<Venue>>,
         lot_size_enforced_venues: Option<Vec<Venue>>,
         t_plus_one_venues: Option<Vec<Venue>>,
+        price_limit_venues: Option<Vec<Venue>>,
         debug: Option<bool>,
     ) -> PyResult<Self> {
         let default = Self::default();
@@ -142,6 +144,9 @@ impl RiskEngineConfig {
         let t_plus_one_venues = t_plus_one_venues
             .map(|venues| venues.into_iter().collect())
             .unwrap_or(default.t_plus_one_venues);
+        let price_limit_venues = price_limit_venues
+            .map(|venues| venues.into_iter().collect())
+            .unwrap_or(default.price_limit_venues);
 
         Self::builder()
             .bypass(bypass.unwrap_or(default.bypass))
@@ -151,6 +156,7 @@ impl RiskEngineConfig {
             .full_position_exit_venues(full_position_exit_venues)
             .lot_size_enforced_venues(lot_size_enforced_venues)
             .t_plus_one_venues(t_plus_one_venues)
+            .price_limit_venues(price_limit_venues)
             .debug(debug.unwrap_or(default.debug))
             .build()
             .map_err(to_pyvalue_err)
@@ -211,6 +217,14 @@ impl RiskEngineConfig {
     #[pyo3(name = "t_plus_one_venues")]
     fn py_t_plus_one_venues(&self) -> Vec<Venue> {
         let mut venues = self.t_plus_one_venues.iter().copied().collect::<Vec<_>>();
+        venues.sort_unstable();
+        venues
+    }
+
+    #[getter]
+    #[pyo3(name = "price_limit_venues")]
+    fn py_price_limit_venues(&self) -> Vec<Venue> {
+        let mut venues = self.price_limit_venues.iter().copied().collect::<Vec<_>>();
         venues.sort_unstable();
         venues
     }

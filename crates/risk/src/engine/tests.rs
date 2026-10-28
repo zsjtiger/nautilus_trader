@@ -379,3 +379,22 @@ fn test_sellable_quantity_excludes_shares_bought_today(
 ) {
     assert_eq!(sellable_quantity(net_long, bought_today), expected);
 }
+
+#[rstest]
+#[case("600519", Decimal::new(10, 2))]
+#[case("000001", Decimal::new(10, 2))]
+#[case("300750", Decimal::new(20, 2))]
+#[case("301000", Decimal::new(20, 2))]
+#[case("688981", Decimal::new(20, 2))]
+fn test_price_limit_ratio_depends_on_board(#[case] code: &str, #[case] expected: Decimal) {
+    assert_eq!(price_limit_ratio(code), expected);
+}
+
+#[rstest]
+fn test_price_limit_bounds_round_half_away_from_zero() {
+    // 10.05 * 1.1 = 11.055, which rounds half away from zero to 11.06.
+    let (lower, upper) = price_limit_bounds(Decimal::new(1005, 2), Decimal::new(10, 2), 2);
+
+    assert_eq!(upper, Decimal::new(1106, 2));
+    assert_eq!(lower, Decimal::new(905, 2));
+}

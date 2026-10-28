@@ -147,6 +147,24 @@ pub enum OrderDeniedReason {
         sellable_quantity: Quantity,
     },
 
+    /// The limit price is outside the daily price limits.
+    #[error("PRICE_OUTSIDE_LIMIT: price={price}, lower={lower_limit}, upper={upper_limit}")]
+    PriceOutsideLimit {
+        /// The order limit price.
+        price: Price,
+        /// The lowest allowed price for the day.
+        lower_limit: Price,
+        /// The highest allowed price for the day.
+        upper_limit: Price,
+    },
+
+    /// No previous trading day close is cached, so the daily price limits cannot be computed.
+    #[error("PRICE_LIMIT_REFERENCE_MISSING: instrument_id={instrument_id}")]
+    PriceLimitReferenceMissing {
+        /// The instrument whose previous close is missing.
+        instrument_id: InstrumentId,
+    },
+
     /// The configured maximum notional per order is invalid.
     #[error("INVALID_MAX_NOTIONAL_PER_ORDER: instrument_id={instrument_id}, value={value}")]
     InvalidMaxNotionalPerOrder {
@@ -504,6 +522,8 @@ impl OrderDeniedCode {
             Self::QuantityBelowMinimum => "The effective order quantity is below the instrument minimum.",
             Self::QuantityNotLotMultiple => "The order quantity is not a multiple of the instrument lot size.",
             Self::SellableQuantityExceeded => "The sell quantity exceeds the shares sellable today under T+1 settlement.",
+            Self::PriceOutsideLimit => "The limit price is outside the daily price limits.",
+            Self::PriceLimitReferenceMissing => "No previous trading day close is available to compute the daily price limits.",
             Self::InvalidMaxNotionalPerOrder => "The configured maximum notional per order is invalid.",
             Self::MissingExpireTime => "A GTD order is missing its expire time.",
             Self::ExpireTimeInPast => "The order's expire time is in the past.",
@@ -602,6 +622,22 @@ mod tests {
         assert_eq!(
             sellable.to_string(),
             "SELLABLE_QUANTITY_EXCEEDED: quantity=200, sellable=100"
+        );
+        let outside = OrderDeniedReason::PriceOutsideLimit {
+            price: Price::from("1150.00"),
+            lower_limit: Price::from("900.00"),
+            upper_limit: Price::from("1100.00"),
+        };
+        assert_eq!(
+            outside.to_string(),
+            "PRICE_OUTSIDE_LIMIT: price=1150.00, lower=900.00, upper=1100.00"
+        );
+        let missing = OrderDeniedReason::PriceLimitReferenceMissing {
+            instrument_id: InstrumentId::from("600519.SSE"),
+        };
+        assert_eq!(
+            missing.to_string(),
+            "PRICE_LIMIT_REFERENCE_MISSING: instrument_id=600519.SSE"
         );
         assert_eq!(
             notional.to_string(),
@@ -962,6 +998,14 @@ mod tests {
             OrderDeniedReason::SellableQuantityExceeded {
                 quantity: Quantity::from("200"),
                 sellable_quantity: Quantity::from("100"),
+            },
+            OrderDeniedReason::PriceOutsideLimit {
+                price: Price::from("1150.00"),
+                lower_limit: Price::from("900.00"),
+                upper_limit: Price::from("1100.00"),
+            },
+            OrderDeniedReason::PriceLimitReferenceMissing {
+                instrument_id: InstrumentId::from("600519.SSE"),
             },
             OrderDeniedReason::InvalidMaxNotionalPerOrder {
                 instrument_id: InstrumentId::from("AUD/USD.SIM"),

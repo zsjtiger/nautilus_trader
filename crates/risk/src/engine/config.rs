@@ -73,6 +73,12 @@ pub struct RiskEngineConfig {
     /// A trading day runs from midnight in UTC+8 (China Standard Time). Empty by default.
     #[builder(default)]
     pub t_plus_one_venues: AHashSet<Venue>,
+    /// Venues whose limit orders must fall within the daily price limits.
+    ///
+    /// Limits are computed from the previous trading day's close: 20% for STAR and ChiNext codes
+    /// (300, 301, 688) and 10% otherwise. Empty by default.
+    #[builder(default)]
+    pub price_limit_venues: AHashSet<Venue>,
     /// Whether to emit additional debug logs.
     #[builder(default)]
     pub debug: bool,
@@ -136,6 +142,7 @@ mod tests {
         assert!(config.full_position_exit_venues.is_empty());
         assert!(config.lot_size_enforced_venues.is_empty());
         assert!(config.t_plus_one_venues.is_empty());
+        assert!(config.price_limit_venues.is_empty());
     }
 
     #[rstest]

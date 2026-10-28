@@ -61,7 +61,7 @@ use nautilus_model::{
     types::{Currency, Money, Price, Quantity, quantity::QuantityRaw},
 };
 use nautilus_portfolio::Portfolio;
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, RoundingStrategy};
 use ustr::Ustr;
 
 type SubmitCommandFn = Box<dyn Fn(TradingCommand)>;
@@ -1060,6 +1060,9 @@ impl RiskEngine {
 
         // Check Price
         let mut reason = Self::check_price(&instrument, command.price, OrderPriceField::Price);
+        if reason.is_none() {
+            reason = self.check_price_limit(&instrument, command.price);
+        }
         if let Some(reason) = reason {
             self.reject_modify_order(&order, &reason.to_string());
             return false;
@@ -1211,7 +1214,8 @@ impl RiskEngine {
 
     fn check_order_price(&self, instrument: &InstrumentAny, order: &OrderAny) -> bool {
         if order.price().is_some() {
-            let reason = Self::check_price(instrument, order.price(), OrderPriceField::Price);
+            let reason = Self::check_price(instrument, order.price(), OrderPriceField::Price)
+                .or_else(|| self.check_price_limit(instrument, order.price()));
             if let Some(reason) = reason {
                 self.deny_order(order, &reason.to_string());
                 return false; // Denied
@@ -1867,6 +1871,70 @@ impl RiskEngine {
             quantity,
             sellable_quantity: Quantity::from_decimal_dp(sellable, precision)
                 .unwrap_or_else(|_| Quantity::zero(precision)),
+        })
+    }
+
+    /// Returns the most recent close of a daily bar dated before `today`, if one is cached.
+    fn previous_trading_day_close(&self, instrument_id: InstrumentId, today: u64) -> Option<Decimal> {
+        let cache = self.cache.borrow();
+        let mut latest: Option<(u64, Decimal)> = None;
+
+        for source in [AggregationSource::External, AggregationSource::Internal] {
+            for bar_type in cache.bar_types(Some(&instrument_id), Some(&PriceType::Last), source) {
+                let spec = bar_type.spec();
+
+                if spec.step.get() != 1 || spec.aggregation != BarAggregation::Day {
+                    continue;
+                }
+
+                let previous = (0..)
+                    .map_while(|index| cache.bar_at_index(bar_type, index))
+                    .find(|bar| trading_day(bar.ts_event.as_u64()) < today);
+
+                if let Some(bar) = previous {
+                    let ts = bar.ts_event.as_u64();
+                    if latest.is_none_or(|(latest_ts, _)| ts > latest_ts) {
+                        latest = Some((ts, bar.close.as_decimal()));
+                    }
+                }
+            }
+        }
+
+        latest.map(|(_, close)| close)
+    }
+
+    /// Denies a limit price outside the daily price limits of a price-limit venue.
+    fn check_price_limit(
+        &self,
+        instrument: &InstrumentAny,
+        price: Option<Price>,
+    ) -> Option<OrderDeniedReason> {
+        let price = price?;
+        let instrument_id = instrument.id();
+
+        if !self.config.price_limit_venues.contains(&instrument_id.venue) {
+            return None;
+        }
+
+        let today = trading_day(self.clock.borrow().timestamp_ns().as_u64());
+        let Some(previous_close) = self.previous_trading_day_close(instrument_id, today) else {
+            return Some(OrderDeniedReason::PriceLimitReferenceMissing { instrument_id });
+        };
+
+        let ratio = price_limit_ratio(instrument.raw_symbol().as_str());
+        let precision = instrument.price_precision();
+        let (lower, upper) = price_limit_bounds(previous_close, ratio, u32::from(precision));
+
+        if price.as_decimal() >= lower && price.as_decimal() <= upper {
+            return None;
+        }
+
+        Some(OrderDeniedReason::PriceOutsideLimit {
+            price,
+            lower_limit: Price::from_decimal_dp(lower, precision)
+                .unwrap_or_else(|_| Price::zero(precision)),
+            upper_limit: Price::from_decimal_dp(upper, precision)
+                .unwrap_or_else(|_| Price::zero(precision)),
         })
     }
 
@@ -3230,6 +3298,31 @@ fn trading_day(ts_ns: u64) -> u64 {
 /// Returns the sellable quantity given the net long position and shares bought today.
 fn sellable_quantity(net_long: Decimal, bought_today: Decimal) -> Decimal {
     (net_long - bought_today).max(Decimal::ZERO)
+}
+
+/// Returns the daily price limit ratio for an A-share code.
+///
+/// STAR Market (688) and ChiNext (300, 301) codes trade within 20%; other codes within 10%.
+fn price_limit_ratio(raw_symbol: &str) -> Decimal {
+    if raw_symbol.starts_with("300")
+        || raw_symbol.starts_with("301")
+        || raw_symbol.starts_with("688")
+    {
+        Decimal::new(20, 2)
+    } else {
+        Decimal::new(10, 2)
+    }
+}
+
+/// Returns the lower and upper daily price limits around a previous close.
+///
+/// Each limit is rounded half away from zero to the instrument's price precision.
+fn price_limit_bounds(previous_close: Decimal, ratio: Decimal, precision: u32) -> (Decimal, Decimal) {
+    let upper = (previous_close * (Decimal::ONE + ratio))
+        .round_dp_with_strategy(precision, RoundingStrategy::MidpointAwayFromZero);
+    let lower = (previous_close * (Decimal::ONE - ratio))
+        .round_dp_with_strategy(precision, RoundingStrategy::MidpointAwayFromZero);
+    (lower, upper)
 }
 
 /// Shares bought on one trading day of an instrument.
