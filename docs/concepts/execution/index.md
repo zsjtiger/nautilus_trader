@@ -447,6 +447,8 @@ cross or immediately match. Other venue rejections leave it `false`.
 | `QUANTITY_BELOW_MINIMUM`                         | The effective order quantity is below the instrument minimum.                         |
 | `QUANTITY_NOT_LOT_MULTIPLE`                      | The order quantity is not a multiple of the instrument lot size.                      |
 | `SELLABLE_QUANTITY_EXCEEDED`                     | The sell quantity exceeds the shares sellable today under T+1 settlement.             |
+| `PRICE_OUTSIDE_LIMIT`                            | The limit price is outside the daily price limits.                                    |
+| `PRICE_LIMIT_REFERENCE_MISSING`                  | No previous trading day close is available to compute the daily price limits.         |
 | `INVALID_MAX_NOTIONAL_PER_ORDER`                 | The configured maximum notional per order is invalid.                                 |
 | `MISSING_EXPIRE_TIME`                            | A GTD order is missing its expire time.                                               |
 | `EXPIRE_TIME_IN_PAST`                            | The order's expire time is in the past.                                               |
