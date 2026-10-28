@@ -118,8 +118,10 @@ the price precision. If no previous close is cached, the order is denied with
 `PRICE_LIMIT_REFERENCE_MISSING`. Load daily bars for the instrument before trading on a price-limit venue.
 
 :::note
-The price limits do not yet cover ST stocks (5%) or the new-listing exemptions, and market orders are not
-checked against the limits.
+The board default does not detect ST stocks, which trade within 5%. Set their ratio explicitly with
+`RiskEngineConfig.price_limit_ratios`, for example `{"600519.SSE": "0.05"}`, which overrides the board
+default for that instrument. The price limits do not cover new-listing exemptions, and market orders are
+not checked against the limits.
 :::
 
 ## Adapters
