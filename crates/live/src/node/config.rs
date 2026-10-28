@@ -1635,6 +1635,8 @@ mean_dispatch_ns_clear = 700
             )]),
             full_position_exit_venues: vec![Venue::from("BINANCE")],
             lot_size_enforced_venues: vec![Venue::from("SSE")],
+            t_plus_one_venues: vec![Venue::from("SSE")],
+            price_limit_venues: vec![Venue::from("SZSE")],
             debug: true,
             ..Default::default()
         };
@@ -1657,6 +1659,18 @@ mean_dispatch_ns_clear = 700
         assert_eq!(
             converted.full_position_exit_venues,
             [Venue::from("BINANCE")].into_iter().collect(),
+        );
+        assert_eq!(
+            converted.lot_size_enforced_venues,
+            [Venue::from("SSE")].into_iter().collect(),
+        );
+        assert_eq!(
+            converted.t_plus_one_venues,
+            [Venue::from("SSE")].into_iter().collect(),
+        );
+        assert_eq!(
+            converted.price_limit_venues,
+            [Venue::from("SZSE")].into_iter().collect(),
         );
         assert_eq!(
             converted.lot_size_enforced_venues,

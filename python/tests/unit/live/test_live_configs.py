@@ -564,6 +564,9 @@ def test_live_risk_engine_config_defaults() -> None:
 
     assert isinstance(config, LiveRiskEngineConfig)
     assert config.full_position_exit_venues == []
+    assert config.lot_size_enforced_venues == []
+    assert config.t_plus_one_venues == []
+    assert config.price_limit_venues == []
 
 
 def test_live_risk_engine_config_explicit() -> None:
@@ -576,6 +579,9 @@ def test_live_risk_engine_config_explicit() -> None:
         max_order_modify_rate="20/00:00:02",
         max_notional_per_order={"BTCUSDT.BINANCE": 100_000},
         full_position_exit_venues=[Venue("BINANCE")],
+        lot_size_enforced_venues=[Venue("SSE")],
+        t_plus_one_venues=[Venue("SSE")],
+        price_limit_venues=[Venue("SZSE")],
         debug=True,
     )
 
@@ -584,6 +590,9 @@ def test_live_risk_engine_config_explicit() -> None:
     assert config.max_order_modify_rate == "20/00:00:02"
     assert config.max_notional_per_order == {"BTCUSDT.BINANCE": "100000"}
     assert config.full_position_exit_venues == [Venue("BINANCE")]
+    assert config.lot_size_enforced_venues == [Venue("SSE")]
+    assert config.t_plus_one_venues == [Venue("SSE")]
+    assert config.price_limit_venues == [Venue("SZSE")]
     assert config.debug is True
 
 
