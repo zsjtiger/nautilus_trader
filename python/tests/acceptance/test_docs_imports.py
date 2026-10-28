@@ -82,7 +82,18 @@ def _resolve(statement: str) -> str | None:
     except ImportError as e:
         return f"{type(e).__name__}: {e}"
 
-    missing = [alias.name for alias in node.names if not hasattr(module, alias.name)]
+    # `from package import submodule` imports the submodule when it is not already an attribute
+    missing = []
+    for alias in node.names:
+        if hasattr(module, alias.name):
+            continue
+        submodule_name = f"{module.__name__}.{alias.name}"
+        try:
+            importlib.import_module(submodule_name)
+        except ModuleNotFoundError as e:
+            if e.name != submodule_name:
+                return f"{type(e).__name__}: {e}"
+            missing.append(alias.name)
     if missing:
         return f"module has no attribute {', '.join(missing)}"
 
