@@ -874,6 +874,8 @@ class LiveRiskEngineConfig:
     @property
     def t_plus_one_venues(self) -> list[model.Venue]: ...
     @property
+    def price_limit_venues(self) -> list[model.Venue]: ...
+    @property
     def debug(self) -> bool: ...
     def __new__(
         cls,
@@ -884,6 +886,7 @@ class LiveRiskEngineConfig:
         full_position_exit_venues: typing.Sequence[model.Venue] | None = None,
         lot_size_enforced_venues: typing.Sequence[model.Venue] | None = None,
         t_plus_one_venues: typing.Sequence[model.Venue] | None = None,
+        price_limit_venues: typing.Sequence[model.Venue] | None = None,
         debug: bool | None = None,
     ) -> LiveRiskEngineConfig: ...
 
