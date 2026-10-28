@@ -20,10 +20,13 @@ import pytest
 
 from nautilus_trader.backtest import BacktestEngine
 from nautilus_trader.config import BacktestEngineConfig
+from nautilus_trader.config import StrategyConfig
 from nautilus_trader.execution.ashare import SSE
+from nautilus_trader.execution.ashare import AShareFeeModel
 from nautilus_trader.execution.ashare import ashare_equity
 from nautilus_trader.model import AccountType
 from nautilus_trader.model import Currency
+from nautilus_trader.model import InstrumentId
 from nautilus_trader.model import Money
 from nautilus_trader.model import OmsType
 from nautilus_trader.model import OrderSide
@@ -39,22 +42,27 @@ from nautilus_trader.trading import Strategy
 CNY = Currency.from_str("CNY")
 
 
-class _BuyOnce(Strategy):
-    def __init__(self, instrument_id, quantity: int) -> None:
+class _BuyOnceConfig(StrategyConfig):
+    def __init__(self, *, instrument_id: InstrumentId, quantity: int, **_kwargs: object) -> None:
         super().__init__()
-        self._instrument_id = instrument_id
-        self._quantity = quantity
+        self.instrument_id = instrument_id
+        self.quantity = quantity
+
+
+class _BuyOnce(Strategy):
+    def __init__(self, config: _BuyOnceConfig) -> None:
+        super().__init__(config)
         self.order = None
 
     def on_start(self) -> None:
-        self.subscribe_quotes(self._instrument_id)
+        self.subscribe_quotes(self.config.instrument_id)
 
-    def on_quote_tick(self, _tick: QuoteTick) -> None:
+    def on_quote(self, _tick: QuoteTick) -> None:
         if self.order is None:
             self.order = self.order_factory.market(
-                self._instrument_id,
+                self.config.instrument_id,
                 OrderSide.BUY,
-                Quantity.from_int(self._quantity),
+                Quantity.from_int(self.config.quantity),
             )
             self.submit_order(self.order)
 
@@ -73,6 +81,7 @@ def _run_buy(quantity: int, lot_size_enforced_venues: list) -> OrderStatus:
         account_type=AccountType.CASH,
         base_currency=CNY,
         starting_balances=[Money(1_000_000, CNY)],
+        fee_model=AShareFeeModel(),
     )
     engine.add_instrument(instrument)
     engine.add_data(
@@ -90,11 +99,11 @@ def _run_buy(quantity: int, lot_size_enforced_venues: list) -> OrderStatus:
         ],
     )
 
-    strategy = _BuyOnce(instrument.id, quantity)
+    strategy = _BuyOnce(_BuyOnceConfig(instrument_id=instrument.id, quantity=quantity))
     engine.add_strategy(strategy)
     engine.run()
 
-    status = strategy.order.status
+    status = engine.cache.order(strategy.order.client_order_id).status
     engine.dispose()
     return status
 
