@@ -872,6 +872,8 @@ class LiveRiskEngineConfig:
     @property
     def lot_size_enforced_venues(self) -> list[model.Venue]: ...
     @property
+    def t_plus_one_venues(self) -> list[model.Venue]: ...
+    @property
     def debug(self) -> bool: ...
     def __new__(
         cls,
@@ -881,6 +883,7 @@ class LiveRiskEngineConfig:
         max_notional_per_order: typing.Mapping[str, typing.Any] | None = None,
         full_position_exit_venues: typing.Sequence[model.Venue] | None = None,
         lot_size_enforced_venues: typing.Sequence[model.Venue] | None = None,
+        t_plus_one_venues: typing.Sequence[model.Venue] | None = None,
         debug: bool | None = None,
     ) -> LiveRiskEngineConfig: ...
 
