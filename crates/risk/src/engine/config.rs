@@ -75,7 +75,7 @@ pub struct RiskEngineConfig {
     pub t_plus_one_venues: AHashSet<Venue>,
     /// Venues whose limit orders must fall within the daily price limits.
     ///
-    /// Limits are computed from the previous trading day's close: 20% for STAR and ChiNext codes
+    /// Limits are computed from the previous trading day's close: 20% for STAR and `ChiNext` codes
     /// (300, 301, 688) and 10% otherwise. Empty by default.
     #[builder(default)]
     pub price_limit_venues: AHashSet<Venue>,

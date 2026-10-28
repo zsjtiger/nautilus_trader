@@ -1850,7 +1850,7 @@ impl RiskEngine {
             .positions_open(None, Some(&instrument_id), None, None, None)
             .iter()
             .map(|position| position.signed_decimal_qty())
-            .filter(|quantity| quantity.is_sign_positive())
+            .filter(Decimal::is_sign_positive)
             .sum();
         let committed_sells: Decimal = cache
             .orders_open(
@@ -3319,7 +3319,7 @@ fn sellable_quantity(net_long: Decimal, bought_today: Decimal) -> Decimal {
 
 /// Returns the daily price limit ratio for an A-share code.
 ///
-/// STAR Market (688) and ChiNext (300, 301) codes trade within 20%; other codes within 10%.
+/// STAR Market (688) and `ChiNext` (300, 301) codes trade within 20%; other codes within 10%.
 fn price_limit_ratio(raw_symbol: &str) -> Decimal {
     if raw_symbol.starts_with("300")
         || raw_symbol.starts_with("301")
