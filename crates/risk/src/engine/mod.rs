@@ -1086,6 +1086,12 @@ impl RiskEngine {
             self.lot_size_enforced(&instrument),
         );
 
+        if reason.is_none()
+            && let Some(quantity) = command.quantity
+        {
+            reason = self.check_t_plus_one(&instrument, &order, quantity);
+        }
+
         if let Some(reason) = reason {
             self.reject_modify_order(&order, &reason.to_string());
             return false;
@@ -1245,7 +1251,7 @@ impl RiskEngine {
             if full_position_exit {
                 None
             } else {
-                self.check_t_plus_one(instrument, order)
+                self.check_t_plus_one(instrument, order, order.quantity())
             }
         });
 
@@ -1817,6 +1823,7 @@ impl RiskEngine {
         &self,
         instrument: &InstrumentAny,
         order: &OrderAny,
+        quantity: Quantity,
     ) -> Option<OrderDeniedReason> {
         let instrument_id = instrument.id();
 
@@ -1850,7 +1857,6 @@ impl RiskEngine {
 
         let sellable = sellable_quantity(net_long, bought_today) - committed_sells;
         let sellable = sellable.max(Decimal::ZERO);
-        let quantity = order.quantity();
 
         if quantity.as_decimal() <= sellable {
             return None;
