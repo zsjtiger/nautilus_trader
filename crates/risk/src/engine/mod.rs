@@ -48,8 +48,8 @@ use nautilus_execution::trailing::{
 use nautilus_model::{
     accounts::{Account, AccountAny},
     enums::{
-        AggregationSource, OrderSide, OrderStatus, OrderType, PositionSide, PriceType, TimeInForce,
-        TradingState, TrailingOffsetType, TriggerType,
+        AggregationSource, BarAggregation, OrderSide, OrderStatus, OrderType, PositionSide,
+        PriceType, TimeInForce, TradingState, TrailingOffsetType, TriggerType,
     },
     events::{
         OrderDenied, OrderDeniedReason, OrderEventAny, OrderModifyRejected, OrderPriceField,
@@ -1853,7 +1853,13 @@ impl RiskEngine {
             .filter(|quantity| quantity.is_sign_positive())
             .sum();
         let committed_sells: Decimal = cache
-            .orders_open(None, Some(&instrument_id), None, None, Some(OrderSide::Sell))
+            .orders_open(
+                None,
+                Some(&instrument_id),
+                None,
+                None,
+                Some(OrderSide::Sell),
+            )
             .iter()
             .filter(|open| open.client_order_id() != order.client_order_id())
             .map(|open| open.leaves_qty().as_decimal())
@@ -1875,7 +1881,11 @@ impl RiskEngine {
     }
 
     /// Returns the most recent close of a daily bar dated before `today`, if one is cached.
-    fn previous_trading_day_close(&self, instrument_id: InstrumentId, today: u64) -> Option<Decimal> {
+    fn previous_trading_day_close(
+        &self,
+        instrument_id: InstrumentId,
+        today: u64,
+    ) -> Option<Decimal> {
         let cache = self.cache.borrow();
         let mut latest: Option<(u64, Decimal)> = None;
 
@@ -1912,7 +1922,11 @@ impl RiskEngine {
         let price = price?;
         let instrument_id = instrument.id();
 
-        if !self.config.price_limit_venues.contains(&instrument_id.venue) {
+        if !self
+            .config
+            .price_limit_venues
+            .contains(&instrument_id.venue)
+        {
             return None;
         }
 
@@ -2196,7 +2210,10 @@ impl RiskEngine {
 
         if let OrderEventAny::Filled(fill) = event
             && fill.order_side == OrderSide::Buy
-            && self.config.t_plus_one_venues.contains(&fill.instrument_id.venue)
+            && self
+                .config
+                .t_plus_one_venues
+                .contains(&fill.instrument_id.venue)
         {
             self.record_t_plus_one_buy(
                 fill.instrument_id,
@@ -3317,7 +3334,11 @@ fn price_limit_ratio(raw_symbol: &str) -> Decimal {
 /// Returns the lower and upper daily price limits around a previous close.
 ///
 /// Each limit is rounded half away from zero to the instrument's price precision.
-fn price_limit_bounds(previous_close: Decimal, ratio: Decimal, precision: u32) -> (Decimal, Decimal) {
+fn price_limit_bounds(
+    previous_close: Decimal,
+    ratio: Decimal,
+    precision: u32,
+) -> (Decimal, Decimal) {
     let upper = (previous_close * (Decimal::ONE + ratio))
         .round_dp_with_strategy(precision, RoundingStrategy::MidpointAwayFromZero);
     let lower = (previous_close * (Decimal::ONE - ratio))
