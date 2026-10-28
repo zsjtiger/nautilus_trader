@@ -426,6 +426,7 @@ Price and quantity checks can also emit these code-led reasons on `OrderModifyRe
 - `QUANTITY_EXCEEDS_MAXIMUM`
 - `QUANTITY_BELOW_MINIMUM`
 - `QUANTITY_NOT_LOT_MULTIPLE`, only for venues listed in `RiskEngineConfig.lot_size_enforced_venues`
+- `SELLABLE_QUANTITY_EXCEEDED`, only for venues listed in `RiskEngineConfig.t_plus_one_venues`
 
 For price reasons, `field` is `PRICE` or `TRIGGER_PRICE` and names the rejected command field. Other
 modification rejection reasons stay free-form. `OrderDeniedCode` does not classify them.
@@ -445,6 +446,7 @@ cross or immediately match. Other venue rejections leave it `false`.
 | `QUANTITY_EXCEEDS_MAXIMUM`                       | The effective order quantity exceeds the instrument maximum.                          |
 | `QUANTITY_BELOW_MINIMUM`                         | The effective order quantity is below the instrument minimum.                         |
 | `QUANTITY_NOT_LOT_MULTIPLE`                      | The order quantity is not a multiple of the instrument lot size.                      |
+| `SELLABLE_QUANTITY_EXCEEDED`                     | The sell quantity exceeds the shares sellable today under T+1 settlement.             |
 | `INVALID_MAX_NOTIONAL_PER_ORDER`                 | The configured maximum notional per order is invalid.                                 |
 | `MISSING_EXPIRE_TIME`                            | A GTD order is missing its expire time.                                               |
 | `EXPIRE_TIME_IN_PAST`                            | The order's expire time is in the past.                                               |

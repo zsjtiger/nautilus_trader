@@ -105,9 +105,13 @@ To reject orders whose quantity is not a whole multiple of the lot size, list th
 `QUANTITY_NOT_LOT_MULTIPLE`. Orders priced in quote currency and validated full-position exits are not
 checked.
 
+To enforce T+1 settlement, list the venue in `RiskEngineConfig.t_plus_one_venues`. A sell is denied with
+`SELLABLE_QUANTITY_EXCEEDED` when it exceeds the net long position less the shares bought earlier on the
+same trading day and less quantity committed to other open sell orders. A trading day runs from midnight
+UTC+8. The check applies to submissions and modifications, except validated full-position exits.
+
 :::note
-A-share support does not yet enforce T+1 settlement or daily price limits. A strategy must handle
-both itself.
+A-share support does not yet enforce daily price limits. A strategy must handle them itself.
 :::
 
 ## Adapters
