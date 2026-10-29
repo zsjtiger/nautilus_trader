@@ -120,8 +120,14 @@ the price precision. If no previous close is cached, the order is denied with
 :::note
 The board default does not detect ST stocks, which trade within 5%. Set their ratio explicitly with
 `RiskEngineConfig.price_limit_ratios`, for example `{"600519.SSE": "0.05"}`, which overrides the board
-default for that instrument. The price limits do not cover new-listing exemptions, and market orders are
-not checked against the limits.
+default for that instrument.
+
+New listings are exempt from the limits on the trading days the exchange does not apply them. Set
+`RiskEngineConfig.price_limit_exempt_until` to the last exempt trading day as an ISO date, for example
+`{"688001.SSE": "2026-11-06"}`. The date is inclusive, and the instrument is subject to the limits
+after it. The exchange calendar determines the date; the engine does not count trading days itself.
+
+Market orders are not checked against the limits.
 :::
 
 ## Adapters
