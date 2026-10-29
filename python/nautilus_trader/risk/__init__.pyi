@@ -59,6 +59,7 @@ class RiskEngineConfig:
         t_plus_one_venues: typing.Sequence[model.Venue] | None = None,
         price_limit_venues: typing.Sequence[model.Venue] | None = None,
         price_limit_ratios: typing.Mapping[str, str] | None = None,
+        price_limit_exempt_until: typing.Mapping[str, str] | None = None,
         debug: bool | None = None,
     ) -> None: ...
     @property
@@ -73,6 +74,8 @@ class RiskEngineConfig:
     def full_position_exit_venues(self) -> list[model.Venue]: ...
     @property
     def lot_size_enforced_venues(self) -> list[model.Venue]: ...
+    @property
+    def price_limit_exempt_until(self) -> dict[str, str]: ...
     @property
     def price_limit_ratios(self) -> dict[str, str]: ...
     @property
