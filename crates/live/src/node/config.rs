@@ -43,7 +43,7 @@ use nautilus_model::{
     identifiers::{ClientId, ClientOrderId, InstrumentId, TraderId, Venue},
 };
 use nautilus_portfolio::config::PortfolioConfig;
-use nautilus_risk::engine::config::RiskEngineConfig;
+use nautilus_risk::engine::config::{RiskEngineConfig, parse_trading_day};
 #[cfg(feature = "streaming")]
 use nautilus_system::config::{DataCatalogConfig, StreamingConfig};
 use nautilus_system::{config::NautilusKernelConfig, event_store::EventStoreConfig};
@@ -222,6 +222,9 @@ pub struct LiveRiskEngineConfig {
     /// Daily price limit ratios that override the board default for specific instruments.
     #[builder(default)]
     pub price_limit_ratios: HashMap<String, String>,
+    /// Last trading day, as an ISO date, on which an instrument is exempt from the price limits.
+    #[builder(default)]
+    pub price_limit_exempt_until: HashMap<String, String>,
     /// If debug mode is active (will provide extra debug logging).
     #[builder(default)]
     pub debug: bool,
@@ -257,6 +260,17 @@ impl From<LiveRiskEngineConfig> for RiskEngineConfig {
         let lot_size_enforced_venues = config.lot_size_enforced_venues.into_iter().collect();
         let t_plus_one_venues = config.t_plus_one_venues.into_iter().collect();
         let price_limit_venues = config.price_limit_venues.into_iter().collect();
+        let price_limit_exempt_until = config
+            .price_limit_exempt_until
+            .into_iter()
+            .map(|(instrument_id, date)| {
+                let instrument_id = InstrumentId::from_str(&instrument_id)
+                    .expect("validate_runtime_support must run before RiskEngineConfig conversion");
+                let trading_day = parse_trading_day(&date)
+                    .expect("validate_runtime_support must run before RiskEngineConfig conversion");
+                (instrument_id, trading_day)
+            })
+            .collect::<AHashMap<_, _>>();
         let price_limit_ratios = config
             .price_limit_ratios
             .into_iter()
@@ -287,6 +301,7 @@ impl From<LiveRiskEngineConfig> for RiskEngineConfig {
             t_plus_one_venues,
             price_limit_venues,
             price_limit_ratios,
+            price_limit_exempt_until,
             debug: config.debug,
         }
     }

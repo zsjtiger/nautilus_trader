@@ -16,6 +16,9 @@
 Test daily price limits for A-share limit orders.
 """
 
+from datetime import date
+from datetime import timedelta
+
 import pytest
 
 from nautilus_trader.backtest import BacktestEngine
@@ -85,7 +88,12 @@ class _LimitOnce(Strategy):
             self.submit_order(self.order)
 
 
-def _run(price: str, with_reference: bool, price_limit_ratios: dict | None = None) -> OrderStatus:
+def _run(
+    price: str,
+    with_reference: bool,
+    price_limit_ratios: dict | None = None,
+    price_limit_exempt_until: dict | None = None,
+) -> OrderStatus:
     instrument = ashare_equity("600519")
     engine = BacktestEngine(
         BacktestEngineConfig(
@@ -93,6 +101,7 @@ def _run(price: str, with_reference: bool, price_limit_ratios: dict | None = Non
             risk_engine=RiskEngineConfig(
                 price_limit_venues=[SSE],
                 price_limit_ratios=price_limit_ratios or {},
+                price_limit_exempt_until=price_limit_exempt_until or {},
             ),
         ),
     )
@@ -170,3 +179,27 @@ def test_limit_order_must_be_within_daily_price_limits(
     Test daily price limits, including a per-instrument ratio override for ST stocks.
     """
     assert _run(price, with_reference, price_limit_ratios) == expected
+
+
+def _iso(day: int) -> str:
+    return (date(1970, 1, 1) + timedelta(days=day)).isoformat()
+
+
+@pytest.mark.parametrize(
+    ("exempt_day_offset", "expected"),
+    [
+        # Exempt through the trading day itself, so a 1150 limit is not checked.
+        (1, OrderStatus.FILLED),
+        # Exempt only through the previous day, so the 10% limit applies again.
+        (0, OrderStatus.DENIED),
+    ],
+)
+def test_new_listing_exemption_skips_price_limit_through_last_exempt_day(
+    exempt_day_offset: int,
+    expected: OrderStatus,
+) -> None:
+    """
+    Test an instrument exempt through a trading day ignores the daily limit on that day.
+    """
+    exempt = {"600519.SSE": _iso(DAY_0 + exempt_day_offset)}
+    assert _run("1150.00", True, None, exempt) == expected

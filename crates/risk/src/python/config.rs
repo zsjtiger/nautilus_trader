@@ -24,7 +24,7 @@ use nautilus_model::identifiers::{InstrumentId, Venue};
 use pyo3::{Py, PyAny, PyResult, Python, prelude::PyAnyMethods, pymethods};
 use rust_decimal::Decimal;
 
-use crate::engine::config::RiskEngineConfig;
+use crate::engine::config::{RiskEngineConfig, format_trading_day, parse_trading_day};
 
 fn format_rate_limit(rate: &RateLimit) -> String {
     let total_secs = rate.interval_ns().as_secs();
@@ -69,6 +69,22 @@ fn parse_rate_limit(name: &str, value: &str) -> PyResult<RateLimit> {
         .map_err(|e| to_pyvalue_err(format!("invalid `{name}`: {e}")))?;
     RateLimit::new_checked(limit, interval_ns)
         .map_err(|e| to_pyvalue_err(format!("invalid `{name}`: {e}")))
+}
+
+fn parse_price_limit_exempt_until(
+    raw: HashMap<String, String>,
+) -> PyResult<AHashMap<InstrumentId, u64>> {
+    raw.into_iter()
+        .map(|(instrument_id, date)| {
+            let parsed_id = InstrumentId::from_str(&instrument_id).map_err(|e| {
+                to_pyvalue_err(format!(
+                    "invalid `price_limit_exempt_until` instrument ID {instrument_id:?}: {e}"
+                ))
+            })?;
+            let trading_day = parse_trading_day(&date).map_err(to_pyvalue_err)?;
+            Ok((parsed_id, trading_day))
+        })
+        .collect()
 }
 
 fn parse_price_limit_ratios(
@@ -127,6 +143,7 @@ impl RiskEngineConfig {
         t_plus_one_venues = None,
         price_limit_venues = None,
         price_limit_ratios = None,
+        price_limit_exempt_until = None,
         debug = None,
     ))]
     fn py_new(
@@ -139,6 +156,7 @@ impl RiskEngineConfig {
         t_plus_one_venues: Option<Vec<Venue>>,
         price_limit_venues: Option<Vec<Venue>>,
         price_limit_ratios: Option<HashMap<String, String>>,
+        price_limit_exempt_until: Option<HashMap<String, String>>,
         debug: Option<bool>,
     ) -> PyResult<Self> {
         let default = Self::default();
@@ -171,6 +189,10 @@ impl RiskEngineConfig {
             Some(raw) => parse_price_limit_ratios(raw)?,
             None => default.price_limit_ratios,
         };
+        let price_limit_exempt_until = match price_limit_exempt_until {
+            Some(raw) => parse_price_limit_exempt_until(raw)?,
+            None => default.price_limit_exempt_until,
+        };
 
         Self::builder()
             .bypass(bypass.unwrap_or(default.bypass))
@@ -182,6 +204,7 @@ impl RiskEngineConfig {
             .t_plus_one_venues(t_plus_one_venues)
             .price_limit_venues(price_limit_venues)
             .price_limit_ratios(price_limit_ratios)
+            .price_limit_exempt_until(price_limit_exempt_until)
             .debug(debug.unwrap_or(default.debug))
             .build()
             .map_err(to_pyvalue_err)
@@ -236,6 +259,15 @@ impl RiskEngineConfig {
             .collect::<Vec<_>>();
         venues.sort_unstable();
         venues
+    }
+
+    #[getter]
+    #[pyo3(name = "price_limit_exempt_until")]
+    fn py_price_limit_exempt_until(&self) -> HashMap<String, String> {
+        self.price_limit_exempt_until
+            .iter()
+            .map(|(id, trading_day)| (id.to_string(), format_trading_day(*trading_day)))
+            .collect()
     }
 
     #[getter]

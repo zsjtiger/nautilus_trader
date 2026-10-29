@@ -1931,6 +1931,15 @@ impl RiskEngine {
         }
 
         let today = trading_day(self.clock.borrow().timestamp_ns().as_u64());
+        if self
+            .config
+            .price_limit_exempt_until
+            .get(&instrument_id)
+            .is_some_and(|last_exempt_day| today <= *last_exempt_day)
+        {
+            return None;
+        }
+
         let Some(previous_close) = self.previous_trading_day_close(instrument_id, today) else {
             return Some(OrderDeniedReason::PriceLimitReferenceMissing { instrument_id });
         };

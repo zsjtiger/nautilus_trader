@@ -220,6 +220,7 @@ fn test_deny_order_exceeding_max_notional(
         t_plus_one_venues: AHashSet::new(),
         price_limit_venues: AHashSet::new(),
         price_limit_ratios: AHashMap::new(),
+        price_limit_exempt_until: AHashMap::new(),
     };
 
     let mut risk_engine = get_risk_engine(
@@ -376,6 +377,7 @@ fn config_fixture(
         t_plus_one_venues: AHashSet::new(),
         price_limit_venues: AHashSet::new(),
         price_limit_ratios: AHashMap::new(),
+        price_limit_exempt_until: AHashMap::new(),
     }
 }
 
@@ -515,6 +517,7 @@ fn get_risk_engine(
         t_plus_one_venues: AHashSet::new(),
         price_limit_venues: AHashSet::new(),
         price_limit_ratios: AHashMap::new(),
+        price_limit_exempt_until: AHashMap::new(),
     });
     let clock = clock.unwrap_or(Rc::new(RefCell::new(VirtualClock::new())));
     let portfolio = Portfolio::new(
@@ -540,6 +543,7 @@ fn get_risk_engine_for_full_position_exit(
         t_plus_one_venues: AHashSet::new(),
         price_limit_venues: AHashSet::new(),
         price_limit_ratios: AHashMap::new(),
+        price_limit_exempt_until: AHashMap::new(),
     };
     get_risk_engine(cache, Some(config), None, false)
 }
@@ -12459,6 +12463,7 @@ fn test_set_trading_state_publishes_trading_state_changed_event() {
         t_plus_one_venues: AHashSet::new(),
         price_limit_venues: AHashSet::new(),
         price_limit_ratios: AHashMap::new(),
+        price_limit_exempt_until: AHashMap::new(),
     };
 
     let mut risk_engine = get_risk_engine(None, Some(config), None, false);
@@ -12530,6 +12535,7 @@ fn test_reset_restores_trading_state_and_config_notionals() {
         t_plus_one_venues: AHashSet::new(),
         price_limit_venues: AHashSet::new(),
         price_limit_ratios: AHashMap::new(),
+        price_limit_exempt_until: AHashMap::new(),
     };
 
     let mut risk_engine = get_risk_engine(None, Some(config), None, false);

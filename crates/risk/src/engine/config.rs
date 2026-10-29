@@ -84,6 +84,12 @@ pub struct RiskEngineConfig {
     /// Use `0.05` for ST stocks, which trade within 5%. Empty by default.
     #[builder(default)]
     pub price_limit_ratios: AHashMap<InstrumentId, Decimal>,
+    /// Last trading day, inclusive, on which an instrument is exempt from the daily price limits.
+    ///
+    /// Set this from the exchange calendar for new listings, as a trading day index. Use
+    /// [`parse_trading_day`] to convert an ISO date such as `2026-11-02`. Empty by default.
+    #[builder(default)]
+    pub price_limit_exempt_until: AHashMap<InstrumentId, u64>,
     /// Whether to emit additional debug logs.
     #[builder(default)]
     pub debug: bool,
@@ -100,6 +106,73 @@ impl<S: risk_engine_config_builder::IsComplete> RiskEngineConfigBuilder<S> {
         config.validate()?;
         Ok(config)
     }
+}
+
+/// Parses an ISO date (`YYYY-MM-DD`) into a trading day index.
+///
+/// The index is the number of days since 1970-01-01 in UTC+8, matching the trading day used by the
+/// risk engine. Rejects dates that do not exist in the calendar, such as `2026-02-30`.
+///
+/// # Errors
+///
+/// Returns an error if the string is not a valid calendar date or precedes 1970-01-01.
+pub fn parse_trading_day(date: &str) -> Result<u64, String> {
+    let invalid = || format!("invalid trading day {date:?}, expected YYYY-MM-DD");
+    let mut parts = date.split('-');
+    let (Some(year), Some(month), Some(day), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return Err(invalid());
+    };
+    let year: i64 = year.parse().map_err(|_| invalid())?;
+    let month: i64 = month.parse().map_err(|_| invalid())?;
+    let day: i64 = day.parse().map_err(|_| invalid())?;
+
+    let days = days_from_civil(year, month, day);
+    if civil_from_days(days) != (year, month, day) {
+        return Err(invalid());
+    }
+    u64::try_from(days).map_err(|_| invalid())
+}
+
+/// Formats a trading day index as an ISO date (`YYYY-MM-DD`).
+///
+/// Indices beyond `i64::MAX` days are not representable and clamp to the largest date.
+#[must_use]
+pub fn format_trading_day(trading_day: u64) -> String {
+    let days = i64::try_from(trading_day).unwrap_or(i64::MAX);
+    let (year, month, day) = civil_from_days(days);
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
+// Days since 1970-01-01 for a proleptic Gregorian date (Howard Hinnant's algorithm).
+fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let year_of_era = year - era * 400;
+    let shifted_month = if month > 2 { month - 3 } else { month + 9 };
+    let day_of_year = (153 * shifted_month + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - 719_468
+}
+
+// Inverse of `days_from_civil`, returning (year, month, day).
+fn civil_from_days(days: i64) -> (i64, i64, i64) {
+    let days = days + 719_468;
+    let era = if days >= 0 { days } else { days - 146_096 } / 146_097;
+    let day_of_era = days - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let shifted_month = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * shifted_month + 2) / 5 + 1;
+    let month = if shifted_month < 10 {
+        shifted_month + 3
+    } else {
+        shifted_month - 9
+    };
+    let year = year_of_era + era * 400 + i64::from(month <= 2);
+    (year, month, day)
 }
 
 impl RiskEngineConfig {
@@ -139,6 +212,26 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+
+    #[rstest]
+    fn test_parse_trading_day_round_trips_iso_dates() {
+        assert_eq!(parse_trading_day("1970-01-01"), Ok(0));
+        assert_eq!(format_trading_day(0), "1970-01-01");
+
+        let index = parse_trading_day("2026-11-02").unwrap();
+        assert_eq!(format_trading_day(index), "2026-11-02");
+    }
+
+    #[rstest]
+    #[case("2026-02-30")]
+    #[case("2026-13-01")]
+    #[case("2026-11")]
+    #[case("2026-11-02-01")]
+    #[case("x-y-z")]
+    #[case("1969-12-31")]
+    fn test_parse_trading_day_rejects_invalid_dates(#[case] date: &str) {
+        assert!(parse_trading_day(date).is_err());
+    }
 
     #[rstest]
     fn test_default_config_is_valid() {
