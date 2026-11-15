@@ -16,14 +16,14 @@
 use std::{fmt::Debug, rc::Rc};
 
 use nautilus_model::{
-    enums::LiquiditySide,
+    enums::{LiquiditySide, OrderSide},
     fees::{MakerTakerFeeRates, MakerTakerFeeSchedule, calculate_maker_taker_commission},
-    identifiers::{GENERIC_SPREAD_ID_SEPARATOR, InstrumentId, parse_generic_spread_id_legs},
+    identifiers::{GENERIC_SPREAD_ID_SEPARATOR, InstrumentId, Venue, parse_generic_spread_id_legs},
     instruments::{Instrument, InstrumentAny},
     orders::{Order, OrderAny},
     types::{Currency, Money, Price, Quantity},
 };
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, RoundingStrategy};
 use rust_decimal_macros::dec;
 
 #[cfg(feature = "python")]
@@ -128,8 +128,103 @@ pub enum FeeModelAny {
     ProbabilityPrice(ProbabilityPriceFeeModel),
     CappedOption(CappedOptionFeeModel),
     TieredNotionalOption(TieredNotionalOptionFeeModel),
+    AShare(AShareFeeModel),
     #[cfg(feature = "python")]
     Python(PythonFeeModel),
+}
+
+/// Commission model for China A-share equity fills, denominated in CNY.
+///
+/// Each fill charges three components, each rounded to the fen (0.01 CNY) half away from zero:
+///
+/// - Brokerage commission: `notional * commission_rate`, with a per-fill floor of `min_commission`.
+/// - Stamp duty: `notional * stamp_duty_rate`, on sells only.
+/// - Transfer fee: `notional * transfer_fee_rate`, on fills at `transfer_fee_venue` only.
+///
+/// The defaults match the rules in force when this model was written. Rates and exemptions change,
+/// so check them against current broker and exchange schedules before relying on backtest results.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AShareFeeModel {
+    commission_rate: Decimal,
+    min_commission: Decimal,
+    stamp_duty_rate: Decimal,
+    transfer_fee_rate: Decimal,
+    transfer_fee_venue: Venue,
+}
+
+impl AShareFeeModel {
+    /// Creates a new [`AShareFeeModel`] instance.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any rate or the minimum commission is negative.
+    pub fn new(
+        commission_rate: Decimal,
+        min_commission: Decimal,
+        stamp_duty_rate: Decimal,
+        transfer_fee_rate: Decimal,
+        transfer_fee_venue: Venue,
+    ) -> anyhow::Result<Self> {
+        for (name, value) in [
+            ("commission_rate", commission_rate),
+            ("min_commission", min_commission),
+            ("stamp_duty_rate", stamp_duty_rate),
+            ("transfer_fee_rate", transfer_fee_rate),
+        ] {
+            if value.is_sign_negative() {
+                anyhow::bail!("{name} must be non-negative, was {value}");
+            }
+        }
+
+        Ok(Self {
+            commission_rate,
+            min_commission,
+            stamp_duty_rate,
+            transfer_fee_rate,
+            transfer_fee_venue,
+        })
+    }
+}
+
+impl Default for AShareFeeModel {
+    fn default() -> Self {
+        Self {
+            commission_rate: dec!(0.00025),
+            min_commission: dec!(5),
+            stamp_duty_rate: dec!(0.0005),
+            transfer_fee_rate: dec!(0.00001),
+            transfer_fee_venue: Venue::from("SSE"),
+        }
+    }
+}
+
+/// Rounds an amount to the fen, half away from zero.
+fn round_to_fen(amount: Decimal) -> Decimal {
+    amount.round_dp_with_strategy(2, RoundingStrategy::MidpointAwayFromZero)
+}
+
+impl FeeModel for AShareFeeModel {
+    fn get_commission(
+        &self,
+        order: &OrderAny,
+        fill_quantity: Quantity,
+        fill_px: Price,
+        instrument: &InstrumentAny,
+    ) -> anyhow::Result<Money> {
+        let notional = fill_quantity.as_decimal() * fill_px.as_decimal();
+
+        let mut total = round_to_fen((notional * self.commission_rate).max(self.min_commission));
+
+        if order.order_side() == OrderSide::Sell {
+            total += round_to_fen(notional * self.stamp_duty_rate);
+        }
+
+        if instrument.id().venue == self.transfer_fee_venue {
+            total += round_to_fen(notional * self.transfer_fee_rate);
+        }
+
+        Money::from_decimal(total, Currency::from("CNY")).map_err(|e| anyhow::anyhow!(e))
+    }
 }
 
 impl FeeModel for FeeModelAny {
@@ -148,6 +243,7 @@ impl FeeModel for FeeModelAny {
             Self::ProbabilityPrice(model) => model.get_commission(order, fill_quantity, fill_px, instrument),
             Self::CappedOption(model) => model.get_commission(order, fill_quantity, fill_px, instrument),
             Self::TieredNotionalOption(model) => model.get_commission(order, fill_quantity, fill_px, instrument),
+            Self::AShare(model) => model.get_commission(order, fill_quantity, fill_px, instrument),
             #[cfg(feature = "python")]
             Self::Python(model) => model.get_commission(order, fill_quantity, fill_px, instrument),
         }
@@ -169,6 +265,7 @@ impl FeeModel for FeeModelAny {
             Self::ProbabilityPrice(model) => model.get_commission_with_context(order, fill_quantity, fill_px, instrument, underlying_px),
             Self::CappedOption(model) => model.get_commission_with_context(order, fill_quantity, fill_px, instrument, underlying_px),
             Self::TieredNotionalOption(model) => model.get_commission_with_context(order, fill_quantity, fill_px, instrument, underlying_px),
+            Self::AShare(model) => model.get_commission_with_context(order, fill_quantity, fill_px, instrument, underlying_px),
             #[cfg(feature = "python")]
             Self::Python(model) => model.get_commission_with_context(order, fill_quantity, fill_px, instrument, underlying_px),
         }
@@ -1645,5 +1742,123 @@ mod tests {
             .build();
 
         TestOrderStubs::make_filled_order(&limit_order, instrument, liquidity_side)
+    }
+}
+
+#[cfg(test)]
+mod ashare_tests {
+    use nautilus_core::UnixNanos;
+    use nautilus_model::{
+        enums::{OrderSide, OrderType},
+        identifiers::{InstrumentId, Symbol, Venue},
+        instruments::{Equity, Instrument, InstrumentAny},
+        orders::builder::OrderTestBuilder,
+        types::{Money, Price, Quantity},
+    };
+    use rstest::rstest;
+    use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
+
+    use super::{AShareFeeModel, FeeModel, FeeModelAny};
+
+    fn a_share_equity(venue: &str) -> InstrumentAny {
+        let instrument_id = InstrumentId::from(format!("600519.{venue}").as_str());
+        InstrumentAny::Equity(
+            Equity::builder()
+                .instrument_id(instrument_id)
+                .raw_symbol(Symbol::from("600519"))
+                .currency(nautilus_model::types::Currency::from("CNY"))
+                .price_precision(2)
+                .price_increment(Price::from("0.01"))
+                .lot_size(Quantity::from("100"))
+                .ts_event(UnixNanos::default())
+                .ts_init(UnixNanos::default())
+                .build()
+                .unwrap(),
+        )
+    }
+
+    #[rstest]
+    #[case("SSE", OrderSide::Buy, "1000.00", "26.00")]
+    #[case("SSE", OrderSide::Buy, "10.00", "5.01")]
+    #[case("SSE", OrderSide::Sell, "1000.00", "76.00")]
+    #[case("SZSE", OrderSide::Sell, "10.00", "5.50")]
+    #[case("SZSE", OrderSide::Buy, "1000.00", "25.00")]
+    fn test_ashare_commission_matches_hand_computed_fees(
+        #[case] venue: &str,
+        #[case] side: OrderSide,
+        #[case] fill_px: &str,
+        #[case] expected: &str,
+    ) {
+        let instrument = a_share_equity(venue);
+        let order = OrderTestBuilder::new(OrderType::Market)
+            .instrument_id(instrument.id())
+            .side(side)
+            .quantity(Quantity::from("100"))
+            .build();
+        let fee_model = FeeModelAny::AShare(AShareFeeModel::default());
+
+        let commission = fee_model
+            .get_commission(
+                &order,
+                Quantity::from("100"),
+                Price::from(fill_px),
+                &instrument,
+            )
+            .unwrap();
+
+        assert_eq!(commission, Money::from(format!("{expected} CNY").as_str()));
+    }
+
+    #[rstest]
+    fn test_ashare_commission_rounds_half_away_from_zero() {
+        // 1.00 * 0.005 = 0.005, which rounds to 0.01 under half-away-from-zero rounding.
+        let instrument = a_share_equity("SZSE");
+        let order = OrderTestBuilder::new(OrderType::Market)
+            .instrument_id(instrument.id())
+            .side(OrderSide::Buy)
+            .quantity(Quantity::from("1"))
+            .build();
+        let fee_model = AShareFeeModel::new(
+            dec!(0.005),
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Decimal::ZERO,
+            Venue::from("SZSE"),
+        )
+        .unwrap();
+
+        let commission = fee_model
+            .get_commission(
+                &order,
+                Quantity::from("1"),
+                Price::from("1.00"),
+                &instrument,
+            )
+            .unwrap();
+
+        assert_eq!(commission, Money::from("0.01 CNY"));
+    }
+
+    #[rstest]
+    #[case(dec!(-0.001), dec!(5), dec!(0.0005), dec!(0.00001))]
+    #[case(dec!(0.00025), dec!(-1), dec!(0.0005), dec!(0.00001))]
+    #[case(dec!(0.00025), dec!(5), dec!(-0.0005), dec!(0.00001))]
+    #[case(dec!(0.00025), dec!(5), dec!(0.0005), dec!(-0.00001))]
+    fn test_ashare_rejects_negative_parameters(
+        #[case] commission_rate: Decimal,
+        #[case] min_commission: Decimal,
+        #[case] stamp_duty_rate: Decimal,
+        #[case] transfer_fee_rate: Decimal,
+    ) {
+        let result = AShareFeeModel::new(
+            commission_rate,
+            min_commission,
+            stamp_duty_rate,
+            transfer_fee_rate,
+            Venue::from("SSE"),
+        );
+
+        assert!(result.is_err());
     }
 }

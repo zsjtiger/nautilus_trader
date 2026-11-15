@@ -136,6 +136,13 @@ path = "examples/node_ema_cross.rs"
 required-features = ["examples", "streaming"]
 doc = false
 
+# Run with `cargo run -p nautilus-backtest --features examples --example engine-ashare`
+[[example]]
+name = "engine-ashare"
+path = "examples/engine_ashare.rs"
+required-features = ["examples"]
+doc = false
+
 # Run with `NAUTILUS_TARDIS_OPTION_CATALOG=/path/to/catalog cargo run -p nautilus-backtest --features examples,streaming --example tardis-option-chain`
 [[example]]
 name = "tardis-option-chain"

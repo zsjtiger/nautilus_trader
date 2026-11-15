@@ -452,6 +452,33 @@ cargo run -p nautilus-backtest --features examples,streaming --example node-ema-
 Source:
 [`crates/backtest/examples/node_ema_cross.rs`](https://github.com/nautechsystems/nautilus_trader/tree/develop/crates/backtest/examples/node_ema_cross.rs)
 
+## A-share equities
+
+The Rust crates support China A-share rules through three settings. Each is opt-in per venue, so
+existing venues are unaffected.
+
+- **Commission**: `AShareFeeModel` in `nautilus-execution` charges brokerage commission with a
+  per-fill minimum, stamp duty on sells, and a transfer fee on the configured venue, all in CNY.
+  Pass it as `FeeModelAny::AShare(AShareFeeModel::default())` to a simulated venue.
+- **Lot sizes and T+1**: list the venue in `RiskEngineConfig::lot_size_enforced_venues` and
+  `RiskEngineConfig::t_plus_one_venues`. Use `Equity` with `lot_size` set to `100`.
+- **Daily price limits**: list the venue in `RiskEngineConfig::price_limit_venues`. Use
+  `price_limit_ratios` for ST stocks and `price_limit_exempt_until` for new listings. The exemption
+  date is the last exempt trading day, inclusive; `parse_trading_day` converts an ISO date to it.
+
+The commission rates are defaults that change over time, so verify them against current schedules.
+Daily price limits use the previous trading day's close from cached daily bars, so load those bars
+before trading. Market orders are not checked against the limits.
+
+Run the complete example, which buys on day one, is denied a same-day sell by T+1, and sells on day two:
+
+```bash
+cargo run -p nautilus-backtest --features examples --example engine-ashare
+```
+
+The example is in `crates/backtest/examples/engine_ashare.rs`. The Python package exposes the same
+commission model as `nautilus_trader.execution.ashare.AShareFeeModel`.
+
 ## Live trading
 
 For an annotated walkthrough, see the

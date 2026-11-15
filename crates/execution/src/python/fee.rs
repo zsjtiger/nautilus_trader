@@ -631,6 +631,9 @@ pub fn fee_model_any_to_pyobject(py: Python<'_>, model: &FeeModelAny) -> PyResul
         FeeModelAny::CappedOption(model) => fee_model_into_py(py, model.clone()),
         FeeModelAny::TieredNotionalOption(model) => fee_model_into_py(py, model.clone()),
         FeeModelAny::Python(model) => Ok(model.obj.clone_ref(py)),
+        FeeModelAny::AShare(_) => Err(to_pytype_err(
+            "The Rust A-share fee model is not exposed to Python; use nautilus_trader.execution.ashare",
+        )),
     }
 }
 
