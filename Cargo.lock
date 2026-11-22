@@ -6087,6 +6087,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "nautilus-ctp"
+version = "0.69.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "cc",
+ "jiff",
+ "nautilus-common",
+ "nautilus-core",
+ "nautilus-live",
+ "nautilus-model",
+ "rstest",
+ "rust_decimal",
+ "serde",
+ "tokio",
+ "tracing",
+ "ustr",
+]
+
+[[package]]
 name = "nautilus-data"
 version = "0.69.0"
 dependencies = [

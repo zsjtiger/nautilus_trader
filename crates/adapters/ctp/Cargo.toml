@@ -1,0 +1,47 @@
+[package]
+name = "nautilus-ctp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "CTP market data adapter for the Nautilus trading engine"
+categories.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+repository.workspace = true
+homepage.workspace = true
+build = "build.rs"
+
+[lints]
+workspace = true
+
+[lib]
+name = "nautilus_ctp"
+crate-type = ["rlib"]
+
+[features]
+default = ["high-precision"]
+# Links the openctp (CTP-compatible) market data library. Requires `CTP_SDK_DIR` and `CTP_LIB_DIR`.
+ctp-native = []
+high-precision = ["nautilus-model/high-precision"]
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+jiff = { workspace = true }
+nautilus-common = { workspace = true }
+nautilus-core = { workspace = true }
+nautilus-live = { workspace = true }
+nautilus-model = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+ustr = { workspace = true }
+
+[dev-dependencies]
+rstest = { workspace = true }
+
+[build-dependencies]
+cc = "1.11"

@@ -9,6 +9,7 @@ members = [
   "crates/adapters/bybit",
   "crates/adapters/coinapi",
   "crates/adapters/coinbase",
+  "crates/adapters/ctp",
   "crates/adapters/databento",
   "crates/adapters/deribit",
   "crates/adapters/derive",
