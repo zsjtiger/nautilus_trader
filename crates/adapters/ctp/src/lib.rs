@@ -16,19 +16,21 @@
 //! [NautilusTrader](https://nautilustrader.io) adapter for [CTP](https://www.sfit.com.cn/), the
 //! Comprehensive Transaction Platform used by Chinese futures exchanges.
 //!
-//! The `nautilus-ctp` crate provides live market data (quotes and inferred trades) and instrument
-//! publication over the CTP market data API, reached through the openctp CTP-compatible SDK.
-//! Instruments are declared in configuration because the market data feed carries no contract
-//! reference data.
+//! The `nautilus-ctp` crate provides live market data (quotes and inferred trades), order entry and
+//! cancellation, order, fill, position, and account reports, and Python bindings for the
+//! configuration types and client factories. It reaches the market through the openctp
+//! CTP-compatible SDK. Instruments are declared in configuration because the feed carries no
+//! contract reference data.
 //!
 //! # Feature Flags
 //!
-//! - `ctp-native`: Links the CTP SDK and enables [`CtpDataClient`]. Requires the `CTP_SDK_DIR` and
-//!   `CTP_LIB_DIR` environment variables at build time. Without it the crate builds the protocol and
-//!   configuration layers only.
+//! - `ctp-native`: Links the CTP SDK. Requires the `CTP_SDK_DIR` and `CTP_LIB_DIR` environment
+//!   variables at build time. Without it the clients build and fail on `connect`.
+//! - `extension-module`: Builds as a Python extension module.
 //! - `high-precision` (default): Enables
 //!   [high-precision mode](https://nautilustrader.io/docs/nightly/getting_started/installation/#precision-mode)
 //!   to use 128-bit value types.
+//! - `python`: Enables the Python bindings from [PyO3](https://pyo3.rs).
 
 #![warn(rustc::all)]
 #![deny(unsafe_code)]
@@ -42,9 +44,16 @@
 
 pub mod config;
 pub mod data;
+pub mod exec;
+pub mod factories;
 pub mod instruments;
 pub mod md;
 pub mod native;
+#[cfg(feature = "python")]
+pub mod python;
+pub mod td;
 
-pub use config::{CtpDataClientConfig, CtpInstrumentDefinition};
+pub use config::{CtpDataClientConfig, CtpExecClientConfig, CtpInstrumentDefinition};
 pub use data::CtpDataClient;
+pub use exec::CtpExecutionClient;
+pub use factories::{CtpDataClientFactory, CtpExecutionClientFactory};

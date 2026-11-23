@@ -235,6 +235,7 @@ def test_known_adapter_set_is_complete() -> None:
         "bybit",
         "coinapi",
         "coinbase",
+        "ctp",
         "databento",
         "deribit",
         "derive",

@@ -27,6 +27,8 @@ fn main() {
     println!("cargo:rerun-if-env-changed=CTP_LIB_DIR");
     println!("cargo:rerun-if-changed=native/ctp_md_shim.h");
     println!("cargo:rerun-if-changed=native/ctp_md_shim.cpp");
+    println!("cargo:rerun-if-changed=native/ctp_td_shim.h");
+    println!("cargo:rerun-if-changed=native/ctp_td_shim.cpp");
 
     if env::var_os("CARGO_FEATURE_CTP_NATIVE").is_none() {
         return;
@@ -40,6 +42,7 @@ fn main() {
         .cpp(true)
         .std("c++17")
         .file("native/ctp_md_shim.cpp")
+        .file("native/ctp_td_shim.cpp")
         .flag("-isystem")
         .flag(sdk_dir.to_str().expect("CTP_SDK_DIR must be valid UTF-8"))
         .include("native")

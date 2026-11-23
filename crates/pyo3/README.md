@@ -23,6 +23,7 @@ This crate provides feature flags to control source code inclusion during compil
 
 - `adapters` (default): Enables all adapter Python bindings except blockchain.
 - `arrow`: Enables Apache Arrow support in dependent crates.
+- `ctp-native`: Links the CTP SDK into the CTP adapter. Requires `CTP_SDK_DIR` and `CTP_LIB_DIR` at build time. Not enabled by default.
 - `defi`: Enables DeFi (Decentralized Finance) support, including blockchain adapters.
 - `extension-module`: Builds as a Python extension module and is automatically enabled by `maturin`.
 - `high-precision`: Uses 128-bit value types throughout the workspace.

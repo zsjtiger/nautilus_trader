@@ -14,6 +14,7 @@ The following integrations are available or planned:
 | [Bybit](https://www.bybit.com)                             | `BYBIT`               | Crypto Exchange (CEX)   | ![status](https://img.shields.io/badge/stable-green) | [Guide](bybit.md)               |
 | [CoinAPI](https://www.coinapi.io/?ref=nautilus)            | `COINAPI`             | Data Provider           | ![status](https://img.shields.io/badge/beta-yellow)  | [Guide](coinapi.md)             |
 | [Coinbase](https://coinbase.com)                           | `COINBASE`            | Crypto Exchange (CEX)   | ![status](https://img.shields.io/badge/stable-green) | [Guide](coinbase.md)            |
+| [CTP](https://www.sfit.com.cn/)                            | `CTP`                 | Futures Exchanges (CEX) | ![status](https://img.shields.io/badge/beta-yellow)  | [Guide](ctp.md)                 |
 | [Databento](https://databento.com)                         | `DATABENTO`           | Data Provider           | ![status](https://img.shields.io/badge/stable-green) | [Guide](databento.md)           |
 | [Deribit](https://www.deribit.com)                         | `DERIBIT`             | Crypto Exchange (CEX)   | ![status](https://img.shields.io/badge/stable-green) | [Guide](deribit.md)             |
 | [Derive](https://www.derive.xyz)                           | `DERIVE`              | Crypto Exchange (DEX)   | ![status](https://img.shields.io/badge/stable-green) | [Guide](derive.md)              |

@@ -34,7 +34,7 @@ use crate::{
 use async_trait::async_trait;
 use nautilus_common::{
     clients::DataClient,
-    live::sender::EventSender,
+    live::{dst::time, sender::EventSender},
     messages::{
         DataEvent,
         data::{SubscribeQuotes, SubscribeTrades, UnsubscribeQuotes, UnsubscribeTrades},
@@ -102,10 +102,10 @@ impl<B: MdBackend + 'static> CtpDataClient<B> {
         config: CtpDataClientConfig,
         sender: EventSender<DataEvent>,
         backend_factory: BackendFactory<B>,
+        clock: &'static AtomicTime,
     ) -> anyhow::Result<Self> {
         config.validate()?;
 
-        let clock = get_atomic_clock_realtime();
         let ts_init = clock.get_time_ns();
         let instruments = config
             .instruments
@@ -245,6 +245,7 @@ impl<B: MdBackend + 'static> DataClient for CtpDataClient<B> {
         self.tasks.spawn(async move {
             loop {
                 tokio::select! {
+                    biased;
                     () = cancel.cancelled() => break,
                     event = events_rx.recv() => match event {
                         Some(event) => lock(&loop_session).handle_event(event),
@@ -258,7 +259,7 @@ impl<B: MdBackend + 'static> DataClient for CtpDataClient<B> {
         lock(&session).start(&self.config.front_address)?;
 
         let timeout = Duration::from_secs(self.config.login_timeout_secs);
-        let outcome = tokio::time::timeout(
+        let outcome = time::timeout(
             timeout,
             status.wait_for(|s| matches!(s, LoginStatus::LoggedIn | LoginStatus::Failed(_))),
         )
@@ -341,6 +342,7 @@ impl CtpDataClient<NativeMdApi> {
             Box::new(|config, events| {
                 NativeMdApi::create(&config.flow_path, config.production_mode, events)
             }),
+            get_atomic_clock_realtime(),
         )
     }
 }
@@ -484,6 +486,7 @@ mod tests {
             config(),
             EventSender::from(tx),
             factory,
+            get_atomic_clock_realtime(),
         )
         .unwrap();
         (client, rx)
@@ -491,7 +494,7 @@ mod tests {
 
     async fn next_data(rx: &mut tokio::sync::mpsc::UnboundedReceiver<DataEvent>) -> Data {
         loop {
-            let event = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            let event = time::timeout(Duration::from_secs(2), rx.recv())
                 .await
                 .expect("timed out waiting for data event")
                 .expect("data channel closed");

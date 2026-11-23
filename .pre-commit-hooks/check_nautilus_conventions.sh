@@ -377,6 +377,7 @@ data nautilus_data::python::data
 databento nautilus_databento::python::databento
 deribit nautilus_deribit::python::deribit
 derive nautilus_derive::python::derive
+ctp nautilus_ctp::python::ctp
 dydx nautilus_dydx::python::dydx
 execution nautilus_execution::python::execution
 finfeed nautilus_finfeed::python::finfeed

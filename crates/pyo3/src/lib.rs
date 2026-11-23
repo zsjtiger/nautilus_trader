@@ -34,6 +34,8 @@
 //!
 //! - `adapters` (default): Enables all adapter Python bindings except blockchain.
 //! - `arrow`: Enables Apache Arrow support in dependent crates.
+//! - `ctp-native`: Links the CTP SDK into the CTP adapter. Requires `CTP_SDK_DIR` and
+//!   `CTP_LIB_DIR` at build time. Not enabled by default.
 //! - `defi`: Enables DeFi (Decentralized Finance) support, including blockchain adapters.
 //! - `extension-module`: Builds as a Python extension module and is automatically enabled by
 //!   `maturin`.
@@ -293,6 +295,14 @@ fn _libnautilus(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     {
         let n = "hyperliquid";
         let submodule = pyo3::wrap_pymodule!(nautilus_hyperliquid::python::hyperliquid);
+        m.add_wrapped(submodule)?;
+        sys_modules.set_item(format!("{module_name}.{n}"), m.getattr(n)?)?;
+    }
+
+    #[cfg(feature = "adapters")]
+    {
+        let n = "ctp";
+        let submodule = pyo3::wrap_pymodule!(nautilus_ctp::python::ctp);
         m.add_wrapped(submodule)?;
         sys_modules.set_item(format!("{module_name}.{n}"), m.getattr(n)?)?;
     }

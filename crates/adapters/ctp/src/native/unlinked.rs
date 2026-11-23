@@ -15,7 +15,10 @@
 
 //! Stub backend for builds without the `ctp-native` feature.
 
-use crate::md::{MdBackend, MdEvent};
+use crate::{
+    md::{MdBackend, MdEvent},
+    td::{OrderCancelRequest, OrderInsertRequest, ResumeType, TdBackend, TdEvent},
+};
 
 const UNAVAILABLE: &str = "CTP market data requires nautilus-ctp built with the `ctp-native` feature, \
     `CTP_SDK_DIR` pointing at the CTP headers, and `CTP_LIB_DIR` pointing at the CTP market data library";
@@ -70,6 +73,134 @@ impl MdBackend for NativeMdApi {
     }
 
     fn unsubscribe(&mut self, _instrument_ids: &[String]) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+}
+
+/// Placeholder for the native trader backend. Creating one always fails.
+#[derive(Debug)]
+pub struct NativeTdApi {
+    _private: (),
+}
+
+impl NativeTdApi {
+    /// Always fails because the SDK is not linked.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the SDK is not linked, which is always the case without the
+    /// `ctp-native` feature.
+    pub fn create(
+        _flow_path: &str,
+        _production_mode: bool,
+        _events: tokio::sync::mpsc::UnboundedSender<TdEvent>,
+    ) -> anyhow::Result<Self> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+}
+
+impl TdBackend for NativeTdApi {
+    fn register_front(&mut self, _address: &str) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn subscribe_topics(
+        &mut self,
+        _private: ResumeType,
+        _public: ResumeType,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn init(&mut self) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn authenticate(
+        &mut self,
+        _broker_id: &str,
+        _user_id: &str,
+        _app_id: &str,
+        _auth_code: &str,
+        _product_info: &str,
+        _request_id: i32,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn login(
+        &mut self,
+        _broker_id: &str,
+        _user_id: &str,
+        _password: &str,
+        _product_info: &str,
+        _request_id: i32,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn logout(&mut self, _broker_id: &str, _user_id: &str, _request_id: i32) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn confirm_settlement(
+        &mut self,
+        _broker_id: &str,
+        _investor_id: &str,
+        _request_id: i32,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn insert_order(
+        &mut self,
+        _order: &OrderInsertRequest,
+        _request_id: i32,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn cancel_order(
+        &mut self,
+        _cancel: &OrderCancelRequest,
+        _request_id: i32,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn query_orders(
+        &mut self,
+        _broker_id: &str,
+        _investor_id: &str,
+        _request_id: i32,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn query_trades(
+        &mut self,
+        _broker_id: &str,
+        _investor_id: &str,
+        _request_id: i32,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn query_positions(
+        &mut self,
+        _broker_id: &str,
+        _investor_id: &str,
+        _request_id: i32,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!(UNAVAILABLE)
+    }
+
+    fn query_account(
+        &mut self,
+        _broker_id: &str,
+        _investor_id: &str,
+        _request_id: i32,
+    ) -> anyhow::Result<()> {
         anyhow::bail!(UNAVAILABLE)
     }
 }

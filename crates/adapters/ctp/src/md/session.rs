@@ -19,7 +19,7 @@
 //! backend commands and emits data events. Keeping the logic here, separate from the async
 //! client, makes the reconnect and subscription rules testable without a live front.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use nautilus_common::{live::sender::EventSender, messages::DataEvent};
 use nautilus_core::{string::secret::SecretString, time::AtomicTime};
@@ -65,7 +65,8 @@ pub struct MdSession<B: MdBackend> {
     backend: B,
     credentials: LoginCredentials,
     instruments: HashMap<String, InstrumentState>,
-    demand: HashMap<String, Demand>,
+    /// Ordered by CTP symbol so resubscription sends the same request on every run.
+    demand: BTreeMap<String, Demand>,
     subscribed: HashSet<String>,
     logged_in: bool,
     next_request_id: i32,
@@ -95,7 +96,7 @@ impl<B: MdBackend> MdSession<B> {
             backend,
             credentials,
             instruments,
-            demand: HashMap::new(),
+            demand: BTreeMap::new(),
             subscribed: HashSet::new(),
             logged_in: false,
             next_request_id: 0,

@@ -25,6 +25,6 @@ mod linked;
 mod unlinked;
 
 #[cfg(feature = "ctp-native")]
-pub use linked::NativeMdApi;
+pub use linked::{NativeMdApi, NativeTdApi};
 #[cfg(not(feature = "ctp-native"))]
-pub use unlinked::NativeMdApi;
+pub use unlinked::{NativeMdApi, NativeTdApi};

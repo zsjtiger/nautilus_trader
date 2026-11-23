@@ -22,25 +22,47 @@ crate-type = ["rlib"]
 
 [features]
 default = ["high-precision"]
-# Links the openctp (CTP-compatible) market data library. Requires `CTP_SDK_DIR` and `CTP_LIB_DIR`.
+# Links the openctp (CTP-compatible) SDK. Requires `CTP_SDK_DIR` and `CTP_LIB_DIR` at build time.
 ctp-native = []
+extension-module = [
+  "nautilus-common/extension-module",
+  "nautilus-model/extension-module",
+  "pyo3/extension-module",
+  "python",
+]
 high-precision = ["nautilus-model/high-precision"]
+python = [
+  "dep:nautilus-system",
+  "nautilus-common/python",
+  "nautilus-core/python",
+  "nautilus-model/python",
+  "nautilus-system/python",
+  "pyo3",
+  "pyo3-stub-gen",
+]
 
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 jiff = { workspace = true }
-nautilus-common = { workspace = true }
+nautilus-common = { workspace = true, features = ["live"] }
 nautilus-core = { workspace = true }
+nautilus-execution = { workspace = true }
 nautilus-live = { workspace = true }
 nautilus-model = { workspace = true }
 rust_decimal = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 tracing = { workspace = true }
 ustr = { workspace = true }
 
+nautilus-system = { workspace = true, optional = true }
+pyo3 = { workspace = true, optional = true }
+pyo3-stub-gen = { workspace = true, optional = true }
+
 [dev-dependencies]
+nautilus-model = { workspace = true, features = ["test-support"] }
 rstest = { workspace = true }
 
 [build-dependencies]

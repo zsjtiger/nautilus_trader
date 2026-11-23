@@ -22,6 +22,7 @@ crate-type = ["rlib", "cdylib"]
 
 [features]
 default = ["adapters"]
+ctp-native = ["nautilus-ctp?/ctp-native"]
 adapters = [
   "dep:nautilus-architect-ax",
   "dep:nautilus-betfair",
@@ -29,6 +30,7 @@ adapters = [
   "dep:nautilus-bybit",
   "dep:nautilus-coinapi",
   "dep:nautilus-coinbase",
+  "dep:nautilus-ctp",
   "dep:nautilus-databento",
   "dep:nautilus-deribit",
   "dep:nautilus-derive",
@@ -67,6 +69,7 @@ extension-module = [
   "nautilus-binance?/extension-module",
   "nautilus-coinapi?/extension-module",
   "nautilus-coinbase?/extension-module",
+  "nautilus-ctp?/extension-module",
   "nautilus-blockchain?/extension-module",
   "nautilus-bybit?/extension-module",
   "nautilus-common/extension-module",
@@ -106,6 +109,7 @@ high-precision = [
   "nautilus-betfair?/high-precision",
   "nautilus-binance?/high-precision",
   "nautilus-coinbase?/high-precision",
+  "nautilus-ctp?/high-precision",
   "nautilus-bybit?/high-precision",
   "nautilus-databento?/high-precision",
   "nautilus-deribit?/high-precision",
@@ -172,6 +176,7 @@ nautilus-blockchain = { workspace = true, features = [
 nautilus-bybit = { workspace = true, optional = true, features = ["python"] }
 nautilus-coinapi = { workspace = true, optional = true, features = ["python"] }
 nautilus-coinbase = { workspace = true, optional = true, features = ["python"] }
+nautilus-ctp = { workspace = true, optional = true, features = ["python"] }
 nautilus-databento = { workspace = true, optional = true, features = [
   "python",
   "live",

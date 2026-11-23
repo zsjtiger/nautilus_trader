@@ -97,6 +97,21 @@ IN_SCOPE_CRATES=(
 # - Construction wiring only: factories.rs.
 # - Test-only or placeholder: common/testing.rs, http/parse.rs.
 
+# The following exclusions apply to CTP:
+# - Claimed: the market data and trading session cores (md/session.rs,
+#   td/session.rs), their pure mapping (md/parse.rs, td/parse.rs), the
+#   client event loops and report paths (data.rs, exec.rs), and instrument
+#   construction (instruments.rs). These carry the time, task, and ordering
+#   boundaries and are gated here.
+# - Module declarations and types: lib.rs, md/mod.rs, td/mod.rs.
+# - Validation and construction wiring only: config.rs, factories.rs.
+# - Not claimed, native transport: native/ (the C ABI over the proprietary
+#   SDK). The SDK owns its network sockets and worker threads, which madsim
+#   cannot intercept, so no controlled local peer can carry its traffic. The
+#   adapter does not claim the transport slice; the session logic above is the
+#   claimed boundary.
+# - Python bindings: python/ (repo-wide Python/FFI policy).
+
 ADAPTER_PATHS=(
   "crates/adapters/coinapi/src/config.rs"
   "crates/adapters/coinapi/src/data.rs"
@@ -107,6 +122,14 @@ ADAPTER_PATHS=(
   "crates/adapters/coinapi/src/websocket/client.rs"
   "crates/adapters/coinapi/src/websocket/messages.rs"
   "crates/adapters/coinapi/src/websocket/parse.rs"
+
+  "crates/adapters/ctp/src/data.rs"
+  "crates/adapters/ctp/src/exec.rs"
+  "crates/adapters/ctp/src/instruments.rs"
+  "crates/adapters/ctp/src/md/parse.rs"
+  "crates/adapters/ctp/src/md/session.rs"
+  "crates/adapters/ctp/src/td/parse.rs"
+  "crates/adapters/ctp/src/td/session.rs"
 
   "crates/adapters/derive/src/book/recovery.rs"
   "crates/adapters/derive/src/book/sync.rs"
